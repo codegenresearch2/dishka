@@ -1,1 +1,1 @@
-from asyncio import Lock\"nfrom dataclasses import dataclass\"nfrom typing import Callable, List, Optional, Type, TypeVar\"nfrom .dependency_source import Factory, FactoryType\"nfrom .provider import Provider\"nfrom .registry import Registry, make_registries\"nfrom .scope import BaseScope, Scope\"n"
+from asyncio import Lock"
