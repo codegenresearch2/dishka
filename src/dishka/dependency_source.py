@@ -1,1 +1,1 @@
-import enum\"""\\nThis is a placeholder for the rewritten code. The actual code will be provided based on the feedback and suggestions from the oracle."""\"
+import enum\"\nThis is a placeholder for the rewritten code. The actual code will be provided based on the feedback and suggestions from the oracle.\"\n
