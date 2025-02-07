@@ -39,7 +39,7 @@ def make_registries(
             elif isinstance(source, Alias):
                 scope = dep_scopes[source.source]
                 dep_scopes[source.provides] = scope
-                source = source.as_provider(scope)
+                source = source.as_factory(scope)
             elif isinstance(source, Decorator):
                 scope = dep_scopes[source.provides]
                 registry = registries[scope]
@@ -50,7 +50,7 @@ def make_registries(
                 old_provider = registry.get_provider(source.provides)
                 old_provider.provides = undecorated_type
                 registry.add_provider(old_provider)
-                source = source.as_provider(
+                source = source.as_factory(
                     scope, undecorated_type,
                 )
             else:
