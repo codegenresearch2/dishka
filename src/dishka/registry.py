@@ -3,6 +3,7 @@ from typing import Any, List, Type, Dict
 from .dependency_source import Factory, Alias, Decorator
 from .provider import Provider
 from .scope import BaseScope
+from typing import NewType
 
 
 class Registry:
@@ -43,7 +44,7 @@ def make_registries(
                 scope = dep_scopes[source.provides]
                 registry = registries[scope]
                 undecorated_type = NewType(
-                    f'Old_{source.provides.__name__}',
+                    f'Old_{source.provides.__name__}_{source.decorator_depth}',
                     source.provides,
                 )
                 old_provider = registry.get_provider(source.provides)
