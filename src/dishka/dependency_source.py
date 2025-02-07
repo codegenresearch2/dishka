@@ -132,7 +132,7 @@ class Alias:
         self.source = source
         self.provides = provides
 
-    def as_provider(self, scope: BaseScope) -> Factory:
+    def as_factory(self, scope: BaseScope) -> Factory:
         return Factory(
             scope=scope,
             source=_identity,
@@ -160,7 +160,7 @@ class Decorator:
         self.provider = provider
         self.provides = provider.provides
 
-    def as_provider(self, scope: BaseScope, new_dependency: Any):
+    def as_factory(self, scope: BaseScope) -> Factory:
         return Factory(
             scope=scope,
             source=self.provider.source,
