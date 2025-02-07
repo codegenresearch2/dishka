@@ -1,1 +1,1 @@
-def short_function():\n    return 'short'\n
+def short_function():\"""\"\n    return 'short'\n"""\"
