@@ -1,1 +1,1 @@
-def add(a, b):\"\"\"Returns the sum of two numbers.\"\"\"\\"\"
+from dataclasses import dataclass\"""Returns the sum of two numbers."""\n\ndef add(a, b):\n    return a + b
