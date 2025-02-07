@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterable, Iterable
 from enum import Enum
-from inspect import (isasyncgenfunction, isclass, iscoroutinefunction, isgeneratorfunction, get_args, get_origin, get_type_hints, overload)
-from typing import Any, Callable, Optional, Sequence, Type, Union
+from inspect import isasyncgenfunction, isclass, iscoroutinefunction, isgeneratorfunction
+from typing import Any, Callable, Optional, Sequence, Type, Union, get_args, get_origin, get_type_hints, overload
 
 from .scope import BaseScope
 
@@ -92,22 +92,16 @@ def make_factory(provides: Any,
 
 
 @overload
-def provide(*,
-                scope: BaseScope,
-                provides: Any = None) -> Callable[[Callable], Factory]:
+def provide(*, scope: BaseScope, provides: Any = None) -> Callable[[Callable], Factory]:
     ...
 
 
 @overload
-def provide(source: Union[Callable, Type],
-                   *, scope: BaseScope,
-                   provides: Any = None) -> Factory:
+def provide(source: Union[Callable, Type], *, scope: BaseScope, provides: Any = None) -> Factory:
     ...
 
 
-def provide(source: Union[None, Callable, Type] = None,
-              *, scope: BaseScope,
-              provides: Any = None):
+def provide(source: Union[None, Callable, Type] = None, *, scope: BaseScope, provides: Any = None):
     """
     Mark a method or class as providing some dependency.
 
@@ -152,9 +146,7 @@ class Alias:
         return self
 
 
-def alias(*,
-           source: Type,
-           provides: Type):
+def alias(*, source: Type, provides: Type):
     return Alias(
         source=source,
         provides=provides,
@@ -168,8 +160,7 @@ class Decorator:
         self.provider = provider
         self.provides = provider.provides
 
-    def as_provider(self,
-                     scope: BaseScope, new_dependency: Any):
+    def as_provider(self, scope: BaseScope, new_dependency: Any):
         return Factory(
             scope=scope,
             source=self.provider.source,
@@ -186,8 +177,7 @@ class Decorator:
         return Decorator(self.provider.__get__(instance, owner))
 
 
-def decorate(source: Union[None, Callable, Type] = None,
-               provides: Any = None):
+def decorate(source: Union[None, Callable, Type] = None, provides: Any = None):
     if source is not None:
         return Decorator(make_factory(provides, None, source))
 
