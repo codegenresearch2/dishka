@@ -1,22 +1,22 @@
 from typing import Any, List, NewType, Type
 
-from .dependency_source import FactorySource, AliasSource, DecoratorSource
+from .dependency_source import Factory, Alias, Decorator
 from .provider import Provider
 from .scope import BaseScope
 
 
 class Registry:
-    __slots__ = ("scope", "_providers")
+    __slots__ = ("scope", "_factories")
 
     def __init__(self, scope: BaseScope):
-        self._providers = {}
+        self._factories = {}
         self.scope = scope
 
-    def add_provider(self, provider: FactorySource):
-        self._providers[provider.provides] = provider
+    def add_factory(self, factory: Factory):
+        self._factories[factory.provides] = factory
 
-    def get_provider(self, dependency: Any) -> FactorySource:
-        return self._providers.get(dependency)
+    def get_factory(self, dependency: Any) -> Factory:
+        return self._factories.get(dependency)
 
 
 def make_registries(
@@ -33,27 +33,27 @@ def make_registries(
 
     for provider in providers:
         for source in provider.dependency_sources:
-            if isinstance(source, FactorySource):
+            if isinstance(source, Factory):
                 scope = source.scope
-            elif isinstance(source, AliasSource):
+            elif isinstance(source, Alias):
                 scope = dep_scopes[source.source]
                 dep_scopes[source.provides] = scope
                 source = source.as_provider(scope)
-            elif isinstance(source, DecoratorSource):
+            elif isinstance(source, Decorator):
                 scope = dep_scopes[source.provides]
                 registry = registries[scope]
                 undecorated_type = NewType(
                     f"Old_{source.provides.__name__}",
                     source.provides,
                 )
-                old_provider = registry.get_provider(source.provides)
-                old_provider.provides = undecorated_type
-                registry.add_provider(old_provider)
+                old_factory = registry.get_factory(source.provides)
+                old_factory.provides = undecorated_type
+                registry.add_factory(old_factory)
                 source = source.as_provider(
                     scope, undecorated_type,
                 )
             else:
                 raise ValueError("Unknown dependency source type")
-            registries[scope].add_provider(source)
+            registries[scope].add_factory(source)
 
     return list(registries.values())
