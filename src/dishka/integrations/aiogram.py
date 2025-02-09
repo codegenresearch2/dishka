@@ -4,6 +4,7 @@ __all__ = [
     "setup_dishka",
 ]
 
+import operator
 from inspect import Parameter
 from typing import Container, Sequence
 
@@ -15,16 +16,18 @@ from .base import Depends, wrap_injection
 
 
 def inject(func):
-    additional_params = [Parameter(
-        name="dishka_container",
-        annotation=Container,
-        kind=Parameter.KEYWORD_ONLY,
-    )]
+    additional_params = [
+        Parameter(
+            name="dishka_container",
+            annotation=Container,
+            kind=Parameter.KEYWORD_ONLY,
+        ),
+    ]
 
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda _, p: p["dishka_container"],
+        container_getter=operator.itemgetter("dishka_container"),
         additional_params=additional_params,
         is_async=True,
     )
@@ -35,9 +38,7 @@ class ContainerMiddleware(BaseMiddleware):
         self.container_wrapper = container_wrapper
         self.container = None
 
-    async def __call__(
-            self, handler, event, data,
-    ):
+    async def __call__(self, handler, event, data):
         async with self.container({TelegramObject: event}) as subcontainer:
             data["dishka_container"] = subcontainer
             return await handler(event, data)
