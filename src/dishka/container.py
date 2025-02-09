@@ -68,9 +68,7 @@ class Container:
     def _get_parent(self, dependency_type: Type[T]) -> T:
         return self.parent_container.get(dependency_type)
 
-    def _get_from_self(self,
-                       factory: Factory,
-    ) -> T:
+    def _get_from_self(self, factory: Factory) -> T:
         sub_dependencies = [
             self._get_unlocked(dependency)
             for dependency in factory.dependencies
@@ -129,6 +127,7 @@ class ContextWrapper:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.container.close()
+
 
 def make_container(*providers: Provider,
                    scopes: Type[BaseScope] = Scope,
