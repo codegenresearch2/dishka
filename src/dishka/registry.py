@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import Any, List, NewType, Type
 
 from .dependency_source import Factory
@@ -33,7 +32,7 @@ def make_registries(
             alias_sources[source.provides] = source.source
 
     registries = {scope: Registry(scope) for scope in scopes}
-    decorator_depth = defaultdict(int)  # type: dict[Type, int]
+    decorator_depth = {}  # type: dict[Type, int]
 
     for provider in providers:
         for source in provider.factories:
