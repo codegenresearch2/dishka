@@ -7,43 +7,38 @@ from .provider import Provider
 from .registry import Registry, make_registries
 from .scope import BaseScope, Scope
 
-T = TypeVar("T")
+T = TypeVar('T')
 
 @dataclass
 class Exit:
-    __slots__ = ("type", "callable")
+    __slots__ = ('type', 'callable')
     type: FactoryType
     callable: Callable
 
 class Container:
     __slots__ = (
-        "registry", "child_registries", "context", "parent_container",
-        "lock", "exits",
+        'registry', 'child_registries', 'context', 'parent_container',
+        'lock', 'exits'
     )
 
     def __init__(self,
                  registry: Registry,
                  *child_registries: Registry,
-                 parent_container: Optional["Container"] = None,
+                 parent_container: Optional['Container'] = None,
                  context: Optional[dict] = None,
                  with_lock: bool = False,
     ):
         self.registry = registry
         self.child_registries = child_registries
-        self.context = {type(self): self}
-        if context:
-            self.context.update(context)
+        self.context = {type(self): self} if context is None else {type(self): self}.update(context)
         self.parent_container = parent_container
-        if with_lock:
-            self.lock = Lock()
-        else:
-            self.lock = None
+        self.lock = Lock() if with_lock else None
         self.exits: List[Exit] = []
 
     def _create_child(self,
-                      context: Optional[dict],
-                      with_lock: bool,
-    ) -> "Container":
+                      context: Optional[dict] = None,
+                      with_lock: bool = False,
+    ) -> 'Container':
         return Container(
             *self.child_registries,
             parent_container=self,
@@ -54,16 +49,16 @@ class Container:
     def __call__(self,
                  context: Optional[dict] = None,
                  with_lock: bool = False,
-    ) -> "ContextWrapper":
+    ) -> 'ContextWrapper':
         """
         Prepare container for entering the inner scope.
 
-        :param context: Data which will available in inner scope
-        :param with_lock: Whether synchronize dependency cache or not
+        :param context: Data which will be available in inner scope
+        :param with_lock: Whether to synchronize dependency cache or not
         :return: context manager for inner scope
         """
         if not self.child_registries:
-            raise ValueError("No child scopes found")
+            raise ValueError('No child scopes found')
         return ContextWrapper(self._create_child(context, with_lock))
 
     def _get_parent(self, dependency_type: Type[T]) -> T:
@@ -83,11 +78,11 @@ class Container:
         elif factory.type is FactoryType.VALUE:
             return factory.source
         else:
-            raise ValueError(f"Unsupported type {factory.type}")
+            raise ValueError(f'Unsupported type {factory.type}')
 
     def get(self, dependency_type: Type[T]) -> T:
         lock = self.lock
-        if not lock:
+        if lock is None:
             return self._get_unlocked(dependency_type)
         with lock:
             return self._get_unlocked(dependency_type)
@@ -96,29 +91,26 @@ class Container:
         if dependency_type in self.context:
             return self.context[dependency_type]
         provider = self.registry.get_provider(dependency_type)
-        if not provider:
-            if not self.parent_container:
-                raise ValueError(f"No provider found for {dependency_type!r}")
+        if provider is None:
+            if self.parent_container is None:
+                raise ValueError(f'No provider found for {dependency_type!r}')
             return self.parent_container.get(dependency_type)
         solved = self._get_from_self(provider)
         self.context[dependency_type] = solved
         return solved
 
     def close(self):
-        e = None
         for exit_generator in self.exits:
             try:
                 if exit_generator.type is FactoryType.GENERATOR:
                     next(exit_generator.callable)
             except StopIteration:
                 pass
-            except Exception as err:  # noqa: BLE001
-                e = err
-        if e:
-            raise e
+            except Exception as err:
+                raise err
 
 class ContextWrapper:
-    __slots__ = ("container",)
+    __slots__ = ('container',)
 
     def __init__(self, container: Container):
         self.container = container
