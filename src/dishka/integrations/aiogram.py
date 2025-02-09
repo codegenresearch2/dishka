@@ -1,15 +1,15 @@
-__all__ = [
-    'Depends',
-    'inject',
-    'setup_dishka',
-]
-
 from inspect import Parameter
 from typing import Container, Sequence
 from aiogram import BaseMiddleware, Router
 from aiogram.types import TelegramObject
 from dishka import Provider, make_async_container
 from .base import Depends, wrap_injection
+
+__all__ = [
+    'Depends',
+    'inject',
+    'setup_dishka',
+]
 
 
 def inject(func):
