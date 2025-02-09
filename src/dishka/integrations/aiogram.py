@@ -37,11 +37,11 @@ class ContainerMiddleware(BaseMiddleware):
         self.container = None
 
     async def __call__(
-            self, handler, event, p,
+            self, handler, event, data,
     ):
         async with self.container({TelegramObject: event}) as subcontainer:
-            p["dishka_container"] = subcontainer
-            return await handler(event, p)
+            data["dishka_container"] = subcontainer
+            return await handler(event, data)
 
     async def startup(self):
         self.container = await self.container_wrapper.__aenter__()
