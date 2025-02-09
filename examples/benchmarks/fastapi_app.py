@@ -1,13 +1,52 @@
 import logging
-from typing import Annotated, Callable, Iterable, NewType
+from contextlib import asynccontextmanager
+from inspect import Parameter
+from typing import Annotated, Callable, Iterable, NewType, get_type_hints
 
 import uvicorn
-from fastapi import APIRouter
-from fastapi import Depends as FastapiDepends
-from fastapi import FastAPI
+from fastapi import APIRouter, Depends
+from fastapi import FastAPI, Request
 
-from dishka import Provider, Scope, provide
-from dishka.integrations.fastapi import Depends, DishkaApp, inject
+from dishka import Provider, Scope, make_async_container, provide
+from dishka.inject import Depends, wrap_injection
+
+
+# framework level
+def inject(func):
+    hints = get_type_hints(func)
+    requests_param = next(
+        (name for name, hint in hints.items() if hint is Request),
+        None,
+    )
+    if requests_param:
+        getter = lambda kwargs: kwargs[requests_param].state.container
+        additional_params = []
+    else:
+        getter = lambda kwargs: kwargs['___r___'].state.container
+        additional_params = [Parameter(
+            name='___r___',
+            annotation=Request,
+            kind=Parameter.KEYWORD_ONLY,
+        )]
+
+    return wrap_injection(
+        func=func,
+        remove_depends=True,
+        container_getter=getter,
+        additional_params=additional_params,
+        is_async=True,
+    )
+
+
+def container_middleware():
+    async def add_request_container(request: Request, call_next):
+        async with request.app.state.container(
+                {Request: request}
+        ) as subcontainer:
+            request.state.container = subcontainer
+            return await call_next(request)
+
+    return add_request_container
 
 
 class Stub:
@@ -21,8 +60,8 @@ class Stub:
     def __eq__(self, other) -> bool:
         if isinstance(other, Stub):
             return (
-                    self._dependency == other._dependency
-                    and self._kwargs == other._kwargs
+                self._dependency == other._dependency
+                and self._kwargs == other._kwargs
             )
         else:
             if not self._kwargs:
@@ -40,8 +79,7 @@ class Stub:
 
 
 # app dependency logic
-
-Host = NewType("Host", str)
+Host = NewType('Host', str)
 
 
 class B:
@@ -59,7 +97,7 @@ class A:
         pass
 
 
-MyInt = NewType("MyInt", int)
+MyInt = NewType('MyInt', int)
 
 
 class MyProvider(Provider):
@@ -80,39 +118,44 @@ class MyProvider(Provider):
 router = APIRouter()
 
 
-@router.get("/")
+@router.get('/')
 @inject
 async def index(
-        *,
-        value: Annotated[A, Depends()],
-        value2: Annotated[A, Depends()],
-) -> str:
-    return f"{value} {value is value2}"
+        *, value: Annotated[A, Depends()], value2: Annotated[A, Depends()],)
+    -> str:
+    return f'{value} {value is value2}'
 
 
-@router.get("/f")
+@router.get('/f')
 async def index(
-        *,
-        value: Annotated[A, FastapiDepends(Stub(A))],
-        value2: Annotated[A, FastapiDepends(Stub(A))],
+        *, value: Annotated[A, Depends(Stub(A))],
+        value2: Annotated[A, Depends(Stub(A))],
 ) -> str:
-    return f"{value} {value is value2}"
+    return f'{value} {value is value2}'
 
 
-def new_a(b: B = FastapiDepends(Stub(B)), c: C = FastapiDepends(Stub(C))):
+def new_a(b: B = Depends(Stub(B)), c: C = Depends(Stub(C))) -> A:
     return A(b, c)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with make_async_container(MyProvider()) as container:
+        app.state.container = container
+        yield
 
 
 def create_app() -> FastAPI:
     logging.basicConfig(level=logging.WARNING)
 
-    app = FastAPI()
+    app = FastAPI(lifespan=lifespan)
+    app.middleware('http')(container_middleware())
     app.dependency_overrides[A] = new_a
     app.dependency_overrides[B] = lambda: B(1)
     app.dependency_overrides[C] = lambda: C(1)
     app.include_router(router)
-    return DishkaApp(providers=[MyProvider()], app=app)
+    return app
 
 
-if __name__ == "__main__":
-    uvicorn.run(create_app(), host="0.0.0.0", port=8000)
+if __name__ == '__main__':
+    uvicorn.run(create_app(), host='0.0.0.0', port=8000)
