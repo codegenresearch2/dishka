@@ -25,7 +25,7 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda _, data: data.get("dishka_container"),
+        container_getter=lambda _, p: p["dishka_container"],
         additional_params=additional_params,
         is_async=True,
     )
@@ -37,11 +37,11 @@ class ContainerMiddleware(BaseMiddleware):
         self.container = None
 
     async def __call__(
-            self, handler, event, data,
+            self, handler, event, p,
     ):
         async with self.container({TelegramObject: event}) as subcontainer:
-            data["dishka_container"] = subcontainer
-            return await handler(event, data)
+            p["dishka_container"] = subcontainer
+            return await handler(event, p)
 
     async def startup(self):
         self.container = await self.container_wrapper.__aenter__()
