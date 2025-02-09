@@ -25,7 +25,7 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=operator.itemgetter("dishka_container"),
+        container_getter=lambda _, data: data.get("dishka_container"),
         additional_params=additional_params,
         is_async=True,
     )
