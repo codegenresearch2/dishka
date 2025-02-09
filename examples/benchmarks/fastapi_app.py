@@ -1,15 +1,18 @@
 import logging
 from fastapi import APIRouter, FastAPI
+from typing import Annotated
 from dishka import Provider, Scope, provide, make_async_container
 from dishka.integrations.fastapi import Depends, inject, DishkaApp
 
 # app core
 class DbGateway:
-    def get(self) -> str:
+    @staticmethod
+    def get() -> str:
         raise NotImplementedError
 
 class FakeDbGateway(DbGateway):
-    def get(self) -> str:
+    @staticmethod
+    def get() -> str:
         return "Hello"
 
 class Interactor:
@@ -22,7 +25,7 @@ class Interactor:
 # app dependency logic
 class AdaptersProvider(Provider):
     @provide(scope=Scope.REQUEST)
-    def get_db(self) -> DbGateway:
+    async def get_db(self) -> DbGateway:
         return FakeDbGateway()
 
 class InteractorProvider(Provider):
@@ -35,7 +38,7 @@ router = APIRouter()
 @inject
 async def index(
         *,
-        interactor: Interactor = Depends(),
+        interactor: Annotated[Interactor, Depends()],
 ) -> str:
     result = interactor()
     return result
@@ -53,4 +56,5 @@ def create_app():
     return DishkaApp(providers=providers, app=app)
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(create_app(), host="0.0.0.0", port=8000)
