@@ -1,33 +1,33 @@
 import logging
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, APIRouter, Depends
 import uvicorn
-from dishka.integrations.fastapi import Depends, DishkaApp, inject
-from dishka import Provider, make_async_container
+from dishka import Provider, Scope, provide, make_async_container
+from dishka.integrations.fastapi import inject
 
 # app core
 class DbGateway:
-    def get(self) -> str:
+    async def get(self) -> str:
         raise NotImplementedError
 
 class FakeDbGateway(DbGateway):
-    def get(self) -> str:
+    async def get(self) -> str:
         return 'Hello'
 
 class Interactor:
     def __init__(self, db: DbGateway):
         self.db = db
 
-    def __call__(self) -> str:
-        return self.db.get()
+    async def __call__(self) -> str:
+        return await self.db.get()
 
 # app dependency logic
 class AdaptersProvider(Provider):
-    @inject
-    def get_db(self) -> DbGateway:
+    @provide(scope=Scope.REQUEST)
+    async def get_db(self) -> DbGateway:
         return FakeDbGateway()
 
 class InteractorProvider(Provider):
-    i1 = inject(Interactor, scope=Scope.REQUEST)
+    i1 = provide(Interactor, scope=Scope.REQUEST)
 
 # presentation layer
 router = APIRouter()
@@ -35,21 +35,19 @@ router = APIRouter()
 @router.get('/')
 @inject
 async def index(*, interactor: Annotated[Interactor, Depends()]):
-    result = interactor()
+    result = await interactor()
     return result
 
-def create_app():
-    logging.basicConfig(
-        level=logging.WARNING,
-        format='%(asctime)s  %(process)-7s %(module)-20s %(message)s',
-    )
+# FastAPI app setup
+async def lifespan(app: FastAPI):
+    async with make_async_container(AdaptersProvider(), InteractorProvider()) as container:
+        app.state.container = container
 
-    app = FastAPI()
+def create_app() -> FastAPI:
+    logging.basicConfig(level=logging.WARNING)
+    app = FastAPI(lifespan=lifespan)
     app.include_router(router)
-    return DishkaApp(
-        providers=[AdaptersProvider(), InteractorProvider()],
-        app=app,
-    )
+    return app
 
 if __name__ == '__main__':
     uvicorn.run(create_app(), host='0.0.0.0', port=8000)
