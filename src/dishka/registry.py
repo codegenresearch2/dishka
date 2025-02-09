@@ -13,8 +13,8 @@ class Registry:
         self._factories: Dict[Type, Factory] = {}
         self.scope = scope
 
-    def add_provider(self, provider: Factory):
-        self._factories[provider.provides] = provider
+    def add_provider(self, factory: Factory):
+        self._factories[factory.provides] = factory
 
     def get_provider(self, dependency: Any) -> Factory:
         return self._factories.get(dependency)
