@@ -1,4 +1,5 @@
 from typing import Any, List, Type, Dict
+from collections import defaultdict
 
 from .dependency_source import Alias, Decorator, Factory
 from .provider import Provider
@@ -29,6 +30,7 @@ def make_registries(
                 dep_scopes[source.provides] = source.scope
 
     registries: Dict[BaseScope, Registry] = {scope: Registry(scope) for scope in scopes}
+    decorator_depth: Dict[Type, int] = defaultdict(int)
 
     for provider in providers:
         for source in provider.dependency_sources:
@@ -45,7 +47,8 @@ def make_registries(
                 old_provider = registry.get_provider(source.provides)
                 old_provider.provides = undecorated_type
                 registry.add_provider(old_provider)
-                source = source.as_factory(scope, undecorated_type)
+                decorator_depth[source.provides] += 1
+                source = source.as_factory(scope, undecorated_type, decorator_depth[source.provides])
             else:
                 raise ValueError("Unknown dependency source type")
             registries[scope].add_provider(source)
