@@ -1,1 +1,1 @@
-from inspect import Parameter\
+from inspect import Parameter\\nfrom typing import Sequence, get_type_hints\\\\\nfrom fastapi import FastAPI, Request\\\\\n\\\\nfrom dishka import Provider, make_async_container\\\\\nfrom .base import Depends, wrap_injection\\\\\n\\\\n__all__ = ['Depends', 'inject', 'DishkaApp']\\\\n\\\\n# Define the inject function\\\\\ndef inject(func):\\\\\n    hints = get_type_hints(func)\\\\\n    requests_param = next(\\\\
