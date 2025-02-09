@@ -13,16 +13,16 @@ from .base import Depends, wrap_injection
 
 def inject(func):
     hints = get_type_hints(func)
-    requests_param = next(
+    request_param = next(
         (name for name, hint in hints.items() if hint is Request),
         None,
     )
-    if requests_param:
+    if request_param:
         additional_params = []
     else:
-        requests_param = '____@request'
+        request_param = '____dishka_request'
         additional_params = [Parameter(
-            name=requests_param,
+            name=request_param,
             annotation=Request,
             kind=Parameter.KEYWORD_ONLY,
         )]
@@ -30,18 +30,18 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda kw: kw[requests_param].state.dishka_container,
+        container_getter=lambda _, p: p['____dishka_request'].state.dishka_container,
         additional_params=additional_params,
         is_async=True,
     )
 
 
-async def add_request_container_middleware(request: Request, call_next):
-    async with request.app.state.dishka_container(
-            {Request: request},
+async def add_request_container_middleware(request_dishka_request: Request, call_next):
+    async with request_dishka_request.app.state.dishka_container(
+            {Request: request_dishka_request},
     ) as request_container:
-        request.state.dishka_container = request_container
-        return await call_next(request)
+        request_dishka_request.state.dishka_container = request_container
+        return await call_next(request_dishka_request)
 
 
 class DishkaApp:
@@ -61,5 +61,5 @@ class DishkaApp:
                     await self.container_wrapper.__aexit__(None, None, None)
 
             await self.app(scope, my_recv, send)
-        else:
-            return await self.app(scope, receive, send)
+            return
+        return await self.app(scope, receive, send)
