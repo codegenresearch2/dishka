@@ -48,7 +48,7 @@ def make_registries(
                 old_provider.provides = undecorated_type
                 registry.add_provider(old_provider)
                 decorator_depth[source.provides] += 1
-                source = source.as_factory(scope, undecorated_type, decorator_depth[source.provides])
+                source = source.as_factory(scope, undecorated_type)
             else:
                 raise ValueError("Unknown dependency source type")
             registries[scope].add_provider(source)
