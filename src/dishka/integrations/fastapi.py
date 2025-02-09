@@ -6,6 +6,10 @@ from fastapi import FastAPI, Request
 from dishka import Provider, make_async_container
 from .base import Depends, wrap_injection
 
+__all__ = [
+    'Depends', 'inject', 'DishkaApp',
+]
+
 
 def inject(func):
     hints = get_type_hints(func)
