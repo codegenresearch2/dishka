@@ -4,6 +4,7 @@ __all__ = [
     "setup_dishka",
 ]
 
+import operator
 from inspect import Parameter
 from typing import Container, Sequence
 
@@ -24,7 +25,7 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda _, p: p["dishka_container"],
+        container_getter=operator.itemgetter("dishka_container"),
         additional_params=additional_params,
         is_async=True,
     )
