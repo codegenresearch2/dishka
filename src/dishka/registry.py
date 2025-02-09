@@ -7,24 +7,24 @@ from .scope import BaseScope
 
 
 class Registry:
-    __slots__ = ("scope", "_providers")
+    __slots__ = ("scope", "_factories")
 
     def __init__(self, scope: BaseScope):
-        self._providers: dict[Type, Factory] = {}
+        self._factories: dict[Type, Factory] = {}
         self.scope = scope
 
-    def add_provider(self, provider: Factory):
-        self._providers[provider.provides] = provider
+    def add_provider(self, factory: Factory):
+        self._factories[factory.provides] = factory
 
     def get_provider(self, dependency: Any) -> Factory:
-        return self._providers.get(dependency)
+        return self._factories.get(dependency)
 
 
 def make_registries(
         *providers: Provider, scopes: Type[BaseScope],
 ) -> List[Registry]:
-    dep_scopes: dict[Type, BaseScope] = {}
-    alias_sources: dict[Type, Type] = {}
+    dep_scopes = {}
+    alias_sources = {}
     for provider in providers:
         for source in provider.factories:
             dep_scopes[source.provides] = source.scope
