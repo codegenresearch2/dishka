@@ -1,4 +1,5 @@
 from typing import Any, List, NewType, Type
+from collections import defaultdict
 
 from .dependency_source import Alias, Decorator, Factory
 from .provider import Provider
@@ -12,8 +13,8 @@ class Registry:
         self._factories = {}
         self.scope = scope
 
-    def add_provider(self, provider: Factory):
-        self._factories[provider.provides] = provider
+    def add_provider(self, factory: Factory):
+        self._factories[factory.provides] = factory
 
     def get_provider(self, dependency: Any) -> Factory:
         return self._factories.get(dependency)
@@ -47,7 +48,7 @@ def make_registries(
                 provides = source.provides
                 decorator_depth[provides] += 1
                 undecorated_type = NewType(
-                    f'Old_{provides.__name__}_{decorator_depth[provides]}',
+                    f'Old_{provides.__name__}@{decorator_depth[provides]}',
                     provides,
                 )
                 old_provider = registry.get_provider(provides)
