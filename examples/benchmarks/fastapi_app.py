@@ -3,8 +3,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Callable, Iterable, NewType
 
 import uvicorn
-from fastapi import APIRouter, Depends
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, Request
 
 from dishka import Provider, Scope, make_async_container, provide
 from dishka.integrations.fastapi import Depends, inject, DishkaApp
@@ -119,12 +118,12 @@ router = APIRouter()
 
 @router.get('/')
 @inject
-async def index(*, value: Annotated[A, Depends()], value2: Annotated[A, Depends()],):
+async def index(*, value: Annotated[A, Depends()], value2: Annotated[A, Depends()]):
     return f'{value} {value is value2}'
 
 
 @router.get('/f')
-async def index(*, value: Annotated[A, Depends(Stub(A))], value2: Annotated[A, Depends(Stub(A))],):
+async def index(*, value: Annotated[A, Depends(Stub(A))], value2: Annotated[A, Depends(Stub(A))]):
     return f'{value} {value is value2}'
 
 
