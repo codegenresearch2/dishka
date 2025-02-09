@@ -34,7 +34,7 @@ router = APIRouter()
 
 @router.get('/')
 @inject
-async def index(*, interactor: Annotated[Interactor, Depends()]):
+async def index(*, interactor: Annotated[Interactor, Depends(lambda: Interactor(db=AdaptersProvider().get_db()))]):
     result = await interactor()
     return result
 
