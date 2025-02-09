@@ -107,7 +107,10 @@ def create_app() -> FastAPI:
     app.dependency_overrides[B] = lambda: B(1)
     app.dependency_overrides[C] = lambda: C(1)
     app.include_router(router)
-    return app
+    return DishkaApp(
+        providers=[MyProvider()],
+        app=app,
+    )
 
 
 if __name__ == '__main__':
