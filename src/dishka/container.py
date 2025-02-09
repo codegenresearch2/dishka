@@ -9,13 +9,11 @@ from .scope import BaseScope, Scope
 
 T = TypeVar("T")
 
-
 @dataclass
 class Exit:
     __slots__ = ("type", "callable")
     type: FactoryType
     callable: Callable
-
 
 class Container:
     __slots__ = (
@@ -23,13 +21,12 @@ class Container:
         "lock", "exits",
     )
 
-    def __init__(
-            self,
-            registry: Registry,
-            *child_registries: Registry,
-            parent_container: Optional["Container"] = None,
-            context: Optional[dict] = None,
-            with_lock: bool = False,
+    def __init__(self,
+                 registry: Registry,
+                 *child_registries: Registry,
+                 parent_container: Optional["Container"] = None,
+                 context: Optional[dict] = None,
+                 with_lock: bool = False,
     ):
         self.registry = registry
         self.child_registries = child_registries
@@ -43,10 +40,9 @@ class Container:
             self.lock = None
         self.exits: List[Exit] = []
 
-    def _create_child(
-            self,
-            context: Optional[dict],
-            with_lock: bool,
+    def _get_child(self,
+                   context: Optional[dict],
+                   with_lock: bool,
     ) -> "Container":
         return Container(
             *self.child_registries,
@@ -55,10 +51,9 @@ class Container:
             with_lock=with_lock,
         )
 
-    def __call__(
-            self,
-            context: Optional[dict] = None,
-            with_lock: bool = False,
+    def __call__(self,
+                 context: Optional[dict] = None,
+                 with_lock: bool = False,
     ) -> "ContextWrapper":
         """
         Prepare container for entering the inner scope.
@@ -68,23 +63,28 @@ class Container:
         """
         if not self.child_registries:
             raise ValueError("No child scopes found")
-        return ContextWrapper(self._create_child(context, with_lock))
+        return ContextWrapper(self._get_child(context, with_lock))
 
-    def _get_from_self(self, factory: Factory) -> T:
+    def _get_parent(self, dependency_type: Type[T]) -> T:
+        return self.parent_container.get(dependency_type)
+
+    def _get_self(self,
+                  dep_provider: Factory,
+    ) -> T:
         sub_dependencies = [
             self._get_unlocked(dependency)
-            for dependency in factory.dependencies
+            for dependency in dep_provider.dependencies
         ]
-        if factory.type is FactoryType.GENERATOR:
-            generator = factory.source(*sub_dependencies)
-            self.exits.append(Exit(factory.type, generator))
+        if dep_provider.type is FactoryType.GENERATOR:
+            generator = dep_provider.source(*sub_dependencies)
+            self.exits.append(Exit(dep_provider.type, generator))
             return next(generator)
-        elif factory.type is FactoryType.FACTORY:
-            return factory.source(*sub_dependencies)
-        elif factory.type is FactoryType.VALUE:
-            return factory.source
+        elif dep_provider.type is FactoryType.FACTORY:
+            return dep_provider.source(*sub_dependencies)
+        elif dep_provider.type is FactoryType.VALUE:
+            return dep_provider.source
         else:
-            raise ValueError(f"Unsupported type {factory.type}")
+            raise ValueError(f"Unsupported type {dep_provider.type}")
 
     def get(self, dependency_type: Type[T]) -> T:
         lock = self.lock
@@ -101,7 +101,7 @@ class Container:
             if not self.parent_container:
                 raise ValueError(f"No provider found for {dependency_type!r}")
             return self.parent_container.get(dependency_type)
-        solved = self._get_from_self(provider)
+        solved = self._get_self(provider)
         self.context[dependency_type] = solved
         return solved
 
@@ -118,7 +118,6 @@ class Container:
         if e:
             raise e
 
-
 class ContextWrapper:
     __slots__ = ("container",)
 
@@ -131,12 +130,10 @@ class ContextWrapper:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.container.close()
 
-
-def make_container(
-        *providers: Provider,
-        scopes: Type[BaseScope] = Scope,
-        context: Optional[dict] = None,
-        with_lock: bool = False,
+def make_container(*providers: Provider,
+                   scopes: Type[BaseScope] = Scope,
+                   context: Optional[dict] = None,
+                   with_lock: bool = False,
 ) -> ContextWrapper:
     registries = make_registries(*providers, scopes=scopes)
     return ContextWrapper(
