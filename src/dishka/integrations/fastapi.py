@@ -1,9 +1,5 @@
-__all__ = [
-    'Depends', 'inject', 'DishkaApp',
-]
-
 from inspect import Parameter
-from typing import Sequence, get_type_hints
+from typing import Sequence
 
 from fastapi import FastAPI, Request
 
@@ -30,7 +26,7 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda kw, p: kw[p],
+        container_getter=lambda kw, p: kw[p].state.dishka_container,
         additional_params=additional_params,
         is_async=True,
     )
