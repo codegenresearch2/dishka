@@ -4,6 +4,7 @@ from typing import Any, List, Type
 from .dependency_source import Factory
 from .provider import Provider
 from .scope import BaseScope
+from typing import NewType
 
 
 class Registry:
