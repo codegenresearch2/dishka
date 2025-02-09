@@ -1,4 +1,3 @@
-import operator
 from inspect import Parameter
 from typing import Container, Sequence
 
@@ -8,6 +7,11 @@ from aiogram.types import TelegramObject
 from dishka import Provider, make_async_container
 from .base import Depends, wrap_injection
 
+__all__ = [
+    'Depends',
+    'inject',
+    'setup_dishka',
+]
 
 def inject(func):
     additional_params = [
@@ -21,7 +25,7 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda _, container: container['dishka_container'],
+        container_getter=lambda _, p: p['dishka_container'],
         additional_params=additional_params,
         is_async=True,
     )
