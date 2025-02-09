@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import Any, List, NewType, Type
 
 from .dependency_source import Factory
