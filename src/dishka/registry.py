@@ -10,7 +10,7 @@ class Registry:
     __slots__ = ("scope", "_factories")
 
     def __init__(self, scope: BaseScope):
-        self._factories = {}
+        self._factories: dict[Type, Factory] = {}
         self.scope = scope
 
     def add_provider(self, factory: Factory):
