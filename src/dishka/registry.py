@@ -10,7 +10,7 @@ class Registry:
     __slots__ = ('scope', '_factories')
 
     def __init__(self, scope: BaseScope):
-        self._factories: Dict[Type, Factory] = {}
+        self._factories = {}
         self.scope = scope
 
     def add_provider(self, factory: Factory):
@@ -32,8 +32,8 @@ def make_registries(
         for source in provider.aliases:
             alias_sources[source.provides] = source.source
 
-    registries: Dict[BaseScope, Registry] = {scope: Registry(scope) for scope in scopes}
-    decorator_depth: Dict[Type, int] = defaultdict(int)
+    registries = {scope: Registry(scope) for scope in scopes}
+    decorator_depth = defaultdict(int)
 
     for provider in providers:
         for source in provider.factories:
