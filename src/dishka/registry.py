@@ -24,16 +24,16 @@ def make_registries(
         *providers: Provider,
         scopes: Type[BaseScope],
 ) -> List[Registry]:
-    dep_scopes = {}
-    alias_sources = {}
+    dep_scopes: dict[Type, BaseScope] = {}
+    alias_sources: dict[Type, Type] = {}
     for provider in providers:
         for source in provider.factories:
             dep_scopes[source.provides] = source.scope
         for source in provider.aliases:
             alias_sources[source.provides] = source.source
 
-    registries = {scope: Registry(scope) for scope in scopes}
-    decorator_depth = defaultdict(int)
+    registries: dict[BaseScope, Registry] = {scope: Registry(scope) for scope in scopes}
+    decorator_depth: dict[Type, int] = defaultdict(int)
 
     for provider in providers:
         for source in provider.factories:
