@@ -1,1 +1,1 @@
-def short_function():\"""\nThis is a shorter function.\n"""\n    pass
+from enum import Enum""
