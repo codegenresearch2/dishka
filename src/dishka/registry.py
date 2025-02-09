@@ -1,4 +1,5 @@
-from typing import Any, List, Type
+from typing import Any, List, Type, Dict, DefaultDict
+from collections import defaultdict
 
 from .dependency_source import Alias, Decorator, Factory
 from .provider import Provider
@@ -6,29 +7,29 @@ from .scope import BaseScope
 
 
 class Registry:
-    __slots__ = ("scope", "_providers")
+    __slots__ = ("scope", "_factories")
 
     def __init__(self, scope: BaseScope):
-        self._providers = {}
+        self._factories: Dict[Type, Factory] = {}
         self.scope = scope
 
     def add_provider(self, provider: Factory):
-        self._providers[provider.provides] = provider
+        self._factories[provider.provides] = provider
 
     def get_provider(self, dependency: Any):
-        return self._providers.get(dependency)
+        return self._factories.get(dependency)
 
 
-def create_registries(
+def make_registries(
         *providers: Provider, scopes: Type[BaseScope]
 ) -> List[Registry]:
-    dependency_scopes = {}
+    dependency_scopes: Dict[Type, BaseScope] = {}
     for provider in providers:
         for source in provider.dependency_sources:
             if hasattr(source, "scope"):
                 dependency_scopes[source.provides] = source.scope
 
-    registries = {scope: Registry(scope) for scope in scopes}
+    registries: Dict[BaseScope, Registry] = {scope: Registry(scope) for scope in scopes}
 
     for provider in providers:
         for source in provider.dependency_sources:
