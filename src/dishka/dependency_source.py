@@ -1,6 +1,8 @@
+from typing import Any
+
 from collections.abc import AsyncIterable, Iterable
 from enum import Enum
-from typing import get_args, get_origin, get_type_hints, Callable, Optional, Sequence, Type, Union
+from inspect import isasyncgenfunction, isclass, iscoroutinefunction, isgeneratorfunction, get_args, get_origin, get_type_hints, overload
 
 from .scope import BaseScope
 
