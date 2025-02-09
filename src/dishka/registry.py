@@ -1,5 +1,6 @@
 from typing import Any, List, NewType, Type
 
+from collections import defaultdict
 from .dependency_source import Factory
 from .provider import Provider
 from .scope import BaseScope
@@ -23,7 +24,7 @@ def make_registries(
         *providers: Provider,
         scopes: Type[BaseScope],
 ) -> List[Registry]:
-    dep_scopes: dict[Type, BaseScope] = defaultdict(BaseScope)
+    dep_scopes = {}
     alias_sources = {}
     for provider in providers:
         for source in provider.factories:
