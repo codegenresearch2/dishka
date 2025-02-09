@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any, List, NewType, Type
 
 from .dependency_source import Factory
@@ -55,7 +56,7 @@ def make_registries(
             scope = dep_scopes[provides]
             registry = registries[scope]
             undecorated_type = NewType(
-                f'{provides.__name__}@{decorator_depth[provides]}',
+                f"{provides.__name__}@{decorator_depth[provides]}",
                 source.provides,
             )
             decorator_depth[provides] += 1
