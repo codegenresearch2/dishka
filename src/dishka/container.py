@@ -57,6 +57,7 @@ class Container:
     ) -> "ContextWrapper":
         """
         Prepare container for entering the inner scope.
+
         :param context: Data which will available in inner scope
         :param with_lock: Whether synchronize dependency cache or not
         :return: context manager for inner scope
