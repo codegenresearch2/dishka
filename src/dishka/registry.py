@@ -7,10 +7,10 @@ from .scope import BaseScope
 
 
 class Registry:
-    __slots__ = ("scope", "_factories")
+    __slots__ = ('scope', '_factories')
 
     def __init__(self, scope: BaseScope):
-        self._factories: dict[Type, Factory] = {}
+        self._factories = {}
         self.scope = scope
 
     def add_provider(self, factory: Factory):
@@ -20,10 +20,11 @@ class Registry:
         return self._factories.get(dependency)
 
 
-def make_registries(
-        *providers: Provider, scopes: Type[BaseScope],
+def create_registries(
+        *providers: Provider,
+        scopes: Type[BaseScope],
 ) -> List[Registry]:
-    dep_scopes: dict[Type, BaseScope] = {}
+    dep_scopes = {}
     alias_sources = {}
     for provider in providers:
         for source in provider.factories:
@@ -32,7 +33,7 @@ def make_registries(
             alias_sources[source.provides] = source.source
 
     registries = {scope: Registry(scope) for scope in scopes}
-    decorator_depth: dict[Type, int] = defaultdict(int)
+    decorator_depth = defaultdict(int)
 
     for provider in providers:
         for source in provider.factories:
@@ -44,7 +45,7 @@ def make_registries(
             while alias_source not in dep_scopes:
                 alias_source = alias_sources[alias_source]
                 if alias_source in visited_types:
-                    raise ValueError(f"Cycle aliases detected {visited_types}")
+                    raise ValueError(f'Cycle aliases detected {visited_types}')
                 visited_types.append(alias_source)
             scope = dep_scopes[alias_source]
             dep_scopes[source.provides] = scope
@@ -55,7 +56,7 @@ def make_registries(
             scope = dep_scopes[provides]
             registry = registries[scope]
             undecorated_type = NewType(
-                f"{provides.__name__}@{decorator_depth[provides]}",
+                f'{provides.__name__}@{decorator_depth[provides]}',
                 source.provides,
             )
             decorator_depth[provides] += 1
