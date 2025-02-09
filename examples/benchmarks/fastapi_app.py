@@ -87,7 +87,7 @@ async def index(*, value: Annotated[A, FastapiDepends(Stub(A))], value2: Annotat
     return f'{value} {value is value2}',
 
 
-def new_a(b: B = Depends(Stub(B)), c: C = Depends(Stub(C))) -> A:
+def new_a(b: B = FastapiDepends(Stub(B)), c: C = FastapiDepends(Stub(C))) -> A:
     return A(b, c)
 
 
