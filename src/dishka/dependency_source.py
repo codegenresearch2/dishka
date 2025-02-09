@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterable, Iterable
 from enum import Enum
-from inspect import (isasyncgenfunction, isclass, iscoroutinefunction, isgeneratorfunction, get_args, get_origin, get_type_hints, overload)
+from inspect import isasyncgenfunction, isclass, iscoroutinefunction, isgeneratorfunction, get_args, get_origin, get_type_hints, overload
 from typing import Any, Callable, Optional, Sequence, Type, Union
 
 from .scope import BaseScope
@@ -52,9 +52,10 @@ class Factory:
         )
 
 
-def make_factory(provides: Any,
-                   scope: Optional[BaseScope],
-                   source: Callable) -> Factory:
+def make_factory(
+        provides: Any,
+        scope: Optional[BaseScope],
+        source: Callable) -> Factory:
     if isclass(source):
         hints = get_type_hints(source.__init__, include_extras=True)
         hints.pop('return', None)
@@ -109,8 +110,7 @@ def provide(source: Union[Callable, Type],
 
 
 def provide(source: Union[None, Callable, Type] = None,
-              *, scope: BaseScope,
-              provides: Any = None):
+              *, scope: BaseScope, provides: Any = None):
     """
     Mark a method or class as providing some dependency.
 
@@ -155,9 +155,7 @@ class Alias:
         return self
 
 
-def alias(*,
-           source: Type,
-           provides: Type):
+def alias(*, source: Type, provides: Type):
     return Alias(
         source=source,
         provides=provides,
@@ -171,9 +169,7 @@ class Decorator:
         self.factory = factory
         self.provides = factory.provides
 
-    def as_factory(self,
-                   scope: BaseScope,
-                   new_dependency: Any) -> Factory:
+    def as_factory(self, scope: BaseScope, new_dependency: Any) -> Factory:
         return Factory(
             scope=scope,
             source=self.factory.source,
@@ -190,8 +186,7 @@ class Decorator:
         return Decorator(self.factory.__get__(instance, owner))
 
 
-def decorate(source: Union[None, Callable, Type] = None,
-              provides: Any = None):
+def decorate(source: Union[None, Callable, Type] = None, provides: Any = None):
     if source is not None:
         return Decorator(make_factory(provides, None, source))
 
