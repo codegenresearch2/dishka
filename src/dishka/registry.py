@@ -45,9 +45,10 @@ def make_registries(
                 registry = registries[scope]
                 depth = decorator_depth[source.provides] + 1
                 decorator_depth[source.provides] = depth
-                undecorated_type_name = f"Old_{source.provides.__name__}_{depth}"
-                undecorated_type = NewType(undecorated_type_name, source.provides)
-                old_provider = registry.get_provider(source.provides)
+                provides = source.provides
+                undecorated_type_name = f"Old_{provides.__name__}_{depth}"
+                undecorated_type = NewType(undecorated_type_name, provides)
+                old_provider = registry.get_provider(provides)
                 old_provider.provides = undecorated_type
                 registry.add_provider(old_provider)
                 source = source.as_factory(scope, undecorated_type)
