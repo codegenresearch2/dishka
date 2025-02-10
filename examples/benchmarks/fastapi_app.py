@@ -1,163 +1,61 @@
 import logging
-from contextlib import asynccontextmanager
-from inspect import Parameter
-from typing import Annotated, Callable, Iterable, NewType, get_type_hints
-
-import uvicorn
-from fastapi import APIRouter
-from fastapi import Depends as FastapiDepends
 from fastapi import FastAPI, Request
-
+from fastapi import APIRouter
+from fastapi import Depends
 from dishka import Provider, Scope, make_async_container, provide
-from dishka.inject import Depends, wrap_injection
+from dishka.integrations.fastapi import inject
 
-
-# framework level
-def inject(func):
-    hints = get_type_hints(func)
-    request_param = next(
-        (name for name, hint in hints.items() if hint is Request),
-        None,
-    )
-    if request_param:
-        container_getter = lambda kwargs: kwargs[request_param].state.container
-        additional_params = []
-    else:
-        container_getter = lambda kwargs: kwargs["request_obj"].state.container
-        additional_params = [Parameter(
-            name="request_obj",
-            annotation=Request,
-            kind=Parameter.KEYWORD_ONLY,
-        )]
-
-    return wrap_injection(
-        func=func,
-        remove_depends=True,
-        container_getter=container_getter,
-        additional_params=additional_params,
-        is_async=True,
-    )
-
-
-def container_middleware():
-    async def add_request_container(request: Request, call_next):
-        async with request.app.state.container({Request: request}) as subcontainer:
-            request.state.container = subcontainer
-            return await call_next(request)
-
-    return add_request_container
-
-
-class Stub:
-    def __init__(self, dependency: Callable, **kwargs):
-        self._dependency = dependency
-        self._kwargs = kwargs
-
-    def __call__(self):
+# app core
+class DbGateway:
+    def get(self) -> str:
         raise NotImplementedError
 
-    def __eq__(self, other) -> bool:
-        if isinstance(other, Stub):
-            return (
-                    self._dependency == other._dependency
-                    and self._kwargs == other._kwargs
-            )
-        else:
-            if not self._kwargs:
-                return self._dependency == other
-            return False
+class FakeDbGateway(DbGateway):
+    def get(self) -> str:
+        return "Hello"
 
-    def __hash__(self):
-        if not self._kwargs:
-            return hash(self._dependency)
-        serial = (
-            self._dependency,
-            *self._kwargs.items(),
-        )
-        return hash(serial)
+class Interactor:
+    def __init__(self, db: DbGateway):
+        self.db = db
 
+    def __call__(self) -> str:
+        return self.db.get()
 
 # app dependency logic
-Host = NewType("Host", str)
-
-
-class B:
-    def __init__(self, x: int):
-        pass
-
-
-class C:
-    def __init__(self, x: int):
-        pass
-
-
-class A:
-    def __init__(self, b: B, c: C):
-        pass
-
-
-MyInt = NewType("MyInt", int)
-
-
-class MyProvider(Provider):
+class AdaptersProvider(Provider):
     @provide(scope=Scope.REQUEST)
-    async def get_a(self, b: B, c: C) -> A:
-        return A(b, c)
+    def get_db(self) -> DbGateway:
+        return FakeDbGateway()
 
-    @provide(scope=Scope.REQUEST)
-    async def get_b(self) -> Iterable[B]:
-        yield B(1)
+class InteractorProvider(Provider):
+    i1 = provide(Interactor, scope=Scope.REQUEST)
 
-    @provide(scope=Scope.REQUEST)
-    async def get_c(self) -> Iterable[C]:
-        yield C(1)
-
-
-# app
+# presentation layer
 router = APIRouter()
-
 
 @router.get("/")
 @inject
 async def index(
         *,
-        value: Annotated[A, Depends()],
-        value2: Annotated[A, Depends()],
+        interactor: Interactor = Depends()
 ) -> str:
-    return f"{value} {value is value2}"
+    return interactor()
 
+def create_app():
+    logging.basicConfig(
+        level=logging.WARNING,
+        format='%(asctime)s  %(process)-7s %(module)-20s %(message)s',
+    )
 
-@router.get("/f")
-async def index(
-        *,
-        value: Annotated[A, FastapiDepends(Stub(A))],
-        value2: Annotated[A, FastapiDepends(Stub(A))],
-) -> str:
-    return f"{value} {value is value2}"
-
-
-def new_a(b: B = FastapiDepends(Stub(B)), c: C = FastapiDepends(Stub(C))):
-    return A(b, c)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with make_async_container(MyProvider()) as container:
-        app.state.container = container
-        yield
-
-
-def create_app() -> FastAPI:
-    logging.basicConfig(level=logging.WARNING)
-
-    app = FastAPI(lifespan=lifespan)
-    app.middleware("http")(container_middleware())
-    app.dependency_overrides[A] = new_a
-    app.dependency_overrides[B] = lambda: B(1)
-    app.dependency_overrides[C] = lambda: C(1)
+    app = FastAPI()
     app.include_router(router)
+
+    providers = [AdaptersProvider(), InteractorProvider()]
+    container_wrapper = make_async_container(*providers)
+    app.state.container_wrapper = container_wrapper
+
     return app
 
-
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(create_app(), host="0.0.0.0", port=8000)
