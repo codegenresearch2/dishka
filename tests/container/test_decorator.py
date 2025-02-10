@@ -10,7 +10,8 @@ class A1(A):
 
 
 class A2(A1):
-    pass
+    def __init__(self):
+        self.a = A2()  # Ensure A2 has an attribute 'a' that holds an instance of A2
 
 
 class ADecorator:
