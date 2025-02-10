@@ -12,16 +12,16 @@ from .base import Depends, wrap_injection
 
 def inject(func):
     hints = get_type_hints(func)
-    requests_param = next(
+    request_param = next(
         (name for name, hint in hints.items() if hint is Request),
         None,
     )
-    if requests_param:
+    if request_param:
         additional_params = []
     else:
-        requests_param = '____@request'
+        request_param = '____@request'
         additional_params = [Parameter(
-            name=requests_param,
+            name=request_param,
             annotation=Request,
             kind=Parameter.KEYWORD_ONLY,
         )]
@@ -29,15 +29,21 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda kw: kw[requests_param].state.dishka_container,
+        container_getter=lambda kw: kw[request_param].state.dishka_container,
         additional_params=additional_params,
         is_async=True,
     )
+
+async def request_container_middleware(request: Request, call_next):
+    async with request.app.state.dishka_container({Request: request}) as request_container:
+        request.state.dishka_container = request_container
+        return await call_next(request)
 
 class DishkaApp:
     def __init__(self, providers: Sequence[Provider], app: FastAPI):
         self.app = app
         self.container_wrapper = make_async_container(*providers)
+        self.app.middleware('http')(request_container_middleware)
 
     async def __call__(self, scope, receive, send):
         if scope['type'] == 'lifespan':
@@ -50,13 +56,4 @@ class DishkaApp:
 
             await self.app(scope, my_recv, send)
         else:
-            async with self.app.state.dishka_container({Request: scope['request']}) as request_container:
-                scope['request'].state.dishka_container = request_container
-                return await self.app(scope, receive, send)
-
-
-In the rewritten code, I have simplified the dependency injection logic by removing the need for a middleware class. Instead, I have added a middleware function `add_request_container_middleware` that is directly added to the FastAPI app. This function handles the creation and destruction of the request-scoped container.
-
-I have also made the lambda function for container access more clear by directly accessing the `dishka_container` attribute of the `Request` object's state.
-
-Finally, I have enhanced code maintainability and readability by removing unnecessary comments and simplifying the structure of the `DishkaApp` class.
+            return await self.app(scope, receive, send)
