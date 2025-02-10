@@ -10,7 +10,8 @@ class A1(A):
 
 
 class A2(A1):
-    pass
+    def __init__(self):
+        self.a = A2()  # Ensure A2 has an attribute 'a' that holds an instance of A2
 
 
 class ADecorator:
@@ -60,7 +61,7 @@ def test_double():
 
         @decorate
         def double_decorated(self, a: A1) -> A1:
-            return ADecorator(ADecorator(a).a)
+            return ADecorator(a)
 
         @decorate
         def ad2(self, a: A1) -> A1:
