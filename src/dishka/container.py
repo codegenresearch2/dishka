@@ -29,7 +29,7 @@ class Container:
             *child_registries: Registry,
             parent_container: Optional["Container"] = None,
             context: Optional[dict] = None,
-            use_lock: bool = False,
+            with_lock: bool = False,
     ):
         self.registry = registry
         self.child_registries = child_registries
@@ -37,7 +37,7 @@ class Container:
         if context:
             self.context.update(context)
         self.parent_container = parent_container
-        if use_lock:
+        if with_lock:
             self.lock = Lock()
         else:
             self.lock = None
@@ -46,29 +46,29 @@ class Container:
     def _create_child(
             self,
             context: Optional[dict],
-            use_lock: bool,
+            with_lock: bool,
     ) -> "Container":
         return Container(
             *self.child_registries,
             parent_container=self,
             context=context,
-            use_lock=use_lock,
+            with_lock=with_lock,
         )
 
     def __call__(
             self,
             context: Optional[dict] = None,
-            use_lock: bool = False,
+            with_lock: bool = False,
     ) -> "ContextWrapper":
         """
         Prepare container for entering the inner scope.
         :param context: Data which will be available in inner scope
-        :param use_lock: Whether to synchronize dependency cache or not
+        :param with_lock: Whether to synchronize dependency cache or not
         :return: context manager for inner scope
         """
         if not self.child_registries:
             raise ValueError("No child scopes found")
-        return ContextWrapper(self._create_child(context, use_lock))
+        return ContextWrapper(self._create_child(context, with_lock))
 
     def _get_from_parent(self, dependency_type: Type[T]) -> T:
         return self.parent_container.get(dependency_type)
@@ -142,9 +142,9 @@ def make_container(
         *providers: Provider,
         scopes: Type[BaseScope] = Scope,
         context: Optional[dict] = None,
-        use_lock: bool = False,
+        with_lock: bool = False,
 ) -> ContextWrapper:
     registries = make_registries(*providers, scopes=scopes)
     return ContextWrapper(
-        Container(*registries, context=context, use_lock=use_lock),
+        Container(*registries, context=context, with_lock=with_lock),
     )
