@@ -22,8 +22,6 @@ def default_parse_dependency(
 ) -> Any:
     """
     Resolve dependency type or return None if it is not a dependency.
-    This function checks if the hint is an Annotated type and if it contains an instance of Depends.
-    If so, it returns the dependency type; otherwise, it returns None.
     """
     if get_origin(hint) is not Annotated:
         return None
@@ -42,7 +40,7 @@ DependencyParser = Callable[[Parameter, Any], Any]
 
 def wrap_injection(
         func: Callable,
-        container_getter: Callable[[dict], Container],
+        container_getter: Callable[..., Container],
         remove_depends: bool = True,
         additional_params: Sequence[Parameter] = (),
         is_async: bool = False,
@@ -81,7 +79,7 @@ def wrap_injection(
 
     if is_async:
         async def autoinjected_func(*args, **kwargs):
-            container = container_getter(kwargs)
+            container = container_getter(*args, **kwargs)
             for param in additional_params:
                 kwargs.pop(param.name)
             solved = {
@@ -91,7 +89,7 @@ def wrap_injection(
             return await func(*args, **kwargs, **solved)
     else:
         def autoinjected_func(*args, **kwargs):
-            container = container_getter(kwargs)
+            container = container_getter(*args, **kwargs)
             for param in additional_params:
                 kwargs.pop(param.name)
             solved = {
