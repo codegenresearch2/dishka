@@ -1,25 +1,25 @@
-from typing import Any, List, Type
-
+from typing import Any, List, Type, Dict
+from collections import defaultdict
 from .dependency_source import Alias, Decorator, Factory
 from .provider import Provider
 from .scope import BaseScope
 
 
 class Registry:
-    __slots__ = ("scope", "_providers")
+    __slots__ = ("scope", "_factories")
 
     def __init__(self, scope: BaseScope):
-        self._providers = {}
         self.scope = scope
+        self._factories: Dict[Type, Factory] = {}
 
     def add_provider(self, provider: Factory):
-        self._providers[provider.provides] = provider
+        self._factories[provider.provides] = provider
 
     def get_provider(self, dependency: Any):
-        return self._providers.get(dependency)
+        return self._factories.get(dependency)
 
 
-def create_registries(
+def make_registries(
         *providers: Provider, scopes: Type[BaseScope]
 ) -> List[Registry]:
     dependency_scopes = {}
