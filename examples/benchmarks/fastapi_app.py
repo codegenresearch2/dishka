@@ -4,27 +4,28 @@ from fastapi import APIRouter
 from fastapi import Depends
 from dishka import Provider, Scope, make_async_container, provide
 from dishka.integrations.fastapi import inject
+from typing import Annotated
 
 # app core
 class DbGateway:
-    def get(self) -> str:
+    async def get(self) -> str:
         raise NotImplementedError
 
 class FakeDbGateway(DbGateway):
-    def get(self) -> str:
+    async def get(self) -> str:
         return "Hello"
 
 class Interactor:
     def __init__(self, db: DbGateway):
         self.db = db
 
-    def __call__(self) -> str:
-        return self.db.get()
+    async def __call__(self) -> str:
+        return await self.db.get()
 
 # app dependency logic
 class AdaptersProvider(Provider):
     @provide(scope=Scope.REQUEST)
-    def get_db(self) -> DbGateway:
+    async def get_db(self) -> DbGateway:
         return FakeDbGateway()
 
 class InteractorProvider(Provider):
@@ -36,10 +37,9 @@ router = APIRouter()
 @router.get("/")
 @inject
 async def index(
-        *,
-        interactor: Interactor = Depends()
+        interactor: Annotated[Interactor, Depends()]
 ) -> str:
-    return interactor()
+    return await interactor()
 
 def create_app():
     logging.basicConfig(
