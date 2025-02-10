@@ -33,7 +33,7 @@ class AsyncContainer:
     ):
         self.registry = registry
         self.child_registries = child_registries
-        self.context = context if context is not None else {}
+        self.context = {type(self): self} if context is None else context
         self.parent_container = parent_container
         self.lock = Lock() if with_lock else None
         self.exits: List[Exit] = []
