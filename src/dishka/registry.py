@@ -5,66 +5,64 @@ from .dependency_source import Factory
 from .provider import Provider
 from .scope import BaseScope
 
-
 class Registry:
-    __slots__ = ("scope", "_factories")
+    __slots__ = ("scope", "factories")
 
     def __init__(self, scope: BaseScope):
-        self._factories: dict[Type, Factory] = {}
+        self.factories = {}
         self.scope = scope
 
-    def add_provider(self, factory: Factory):
-        self._factories[factory.provides] = factory
+    def add_factory(self, factory: Factory):
+        self.factories[factory.provides] = factory
 
-    def get_provider(self, dependency: Any) -> Factory:
-        return self._factories.get(dependency)
+    def get_factory(self, dependency: Any) -> Factory:
+        return self.factories.get(dependency)
 
-
-def make_registries(
+def create_registries(
         *providers: Provider, scopes: Type[BaseScope],
 ) -> List[Registry]:
-    dep_scopes: dict[Type, BaseScope] = {}
+    dependency_scopes = {}
     alias_sources = {}
     for provider in providers:
-        for source in provider.factories:
-            dep_scopes[source.provides] = source.scope
-        for source in provider.aliases:
-            alias_sources[source.provides] = source.source
+        for factory in provider.factories:
+            dependency_scopes[factory.provides] = factory.scope
+        for alias in provider.aliases:
+            alias_sources[alias.provides] = alias.source
 
     registries = {scope: Registry(scope) for scope in scopes}
-    decorator_depth: dict[Type, int] = defaultdict(int)
+    decorator_depth = defaultdict(int)
 
     for provider in providers:
-        for source in provider.factories:
-            scope = source.scope
-            registries[scope].add_provider(source)
-        for source in provider.aliases:
-            alias_source = source.source
+        for factory in provider.factories:
+            scope = factory.scope
+            registries[scope].add_factory(factory)
+        for alias in provider.aliases:
+            alias_source = alias.source
             visited_types = [alias_source]
-            while alias_source not in dep_scopes:
+            while alias_source not in dependency_scopes:
                 alias_source = alias_sources[alias_source]
                 if alias_source in visited_types:
-                    raise ValueError(f"Cycle aliases detected {visited_types}")
+                    raise ValueError(f"Cycle aliases detected: {visited_types}")
                 visited_types.append(alias_source)
-            scope = dep_scopes[alias_source]
-            dep_scopes[source.provides] = scope
-            source = source.as_factory(scope)
-            registries[scope].add_provider(source)
-        for source in provider.decorators:
-            provides = source.provides
-            scope = dep_scopes[provides]
+            scope = dependency_scopes[alias_source]
+            dependency_scopes[alias.provides] = scope
+            factory = alias.as_factory(scope)
+            registries[scope].add_factory(factory)
+        for decorator in provider.decorators:
+            provides = decorator.provides
+            scope = dependency_scopes[provides]
             registry = registries[scope]
             undecorated_type = NewType(
                 f"{provides.__name__}@{decorator_depth[provides]}",
-                source.provides,
+                decorator.provides,
             )
             decorator_depth[provides] += 1
-            old_provider = registry.get_provider(provides)
-            old_provider.provides = undecorated_type
-            registry.add_provider(old_provider)
-            source = source.as_factory(
+            old_factory = registry.get_factory(provides)
+            old_factory.provides = undecorated_type
+            registry.add_factory(old_factory)
+            factory = decorator.as_factory(
                 scope, undecorated_type,
             )
-            registries[scope].add_provider(source)
+            registries[scope].add_factory(factory)
 
     return list(registries.values())
