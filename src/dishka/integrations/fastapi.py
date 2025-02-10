@@ -49,7 +49,7 @@ class DishkaApp:
 
     async def __call__(self, scope, receive, send):
         if scope['type'] == 'lifespan':
-            async def lifespan_message_receiver():
+            async def lifespan_message_handler():
                 message = await receive()
                 if message['type'] == 'lifespan.startup':
                     container = await self.container_wrapper.__aenter__()
@@ -57,6 +57,6 @@ class DishkaApp:
                 elif message['type'] == 'lifespan.shutdown':
                     await self.container_wrapper.__aexit__(None, None, None)
 
-            return await self.app(scope, lifespan_message_receiver, send)
+            return await self.app(scope, lifespan_message_handler, send)
         else:
             return await self.app(scope, receive, send)
