@@ -60,9 +60,10 @@ class Container:
     ) -> "ContextWrapper":
         """
         Prepare container for entering the inner scope.
-        :param context: Data which will be available in inner scope
+
+        :param context: Data which will be available in the inner scope
         :param with_lock: Whether to synchronize dependency cache or not
-        :return: context manager for inner scope
+        :return: context manager for the inner scope
         """
         if not self.child_registries:
             raise ValueError("No child scopes found")
