@@ -52,7 +52,8 @@ class DishkaApp:
             async def lifespan_message_receiver():
                 message = await receive()
                 if message['type'] == 'lifespan.startup':
-                    self.app.state.container = await self.container_wrapper.__aenter__()
+                    container = await self.container_wrapper.__aenter__()
+                    self.app.state.dishka_container = container
                 elif message['type'] == 'lifespan.shutdown':
                     await self.container_wrapper.__aexit__(None, None, None)
 
