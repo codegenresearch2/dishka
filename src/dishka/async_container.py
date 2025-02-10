@@ -33,7 +33,7 @@ class AsyncContainer:
     ):
         self.registry = registry
         self.child_registries = child_registries
-        self.context = {type(self): self} if context is None else context
+        self.context = context if context is not None else {}
         self.parent_container = parent_container
         self.lock = Lock() if with_lock else None
         self.exits: List[Exit] = []
@@ -63,7 +63,7 @@ class AsyncContainer:
         """
         if not self.child_registries:
             raise ValueError("No child scopes found")
-        return AsyncContextWrapper(self._create_child(context, with_lock))
+        return AsyncContextWrapper(await self._create_child(context, with_lock))
 
     async def _get_from_self(self, factory: Factory) -> T:
         sub_dependencies = [
@@ -142,5 +142,5 @@ def make_async_container(
 ) -> AsyncContextWrapper:
     registries = make_registries(*providers, scopes=scopes)
     return AsyncContextWrapper(
-        AsyncContainer(*registries, context=context, with_lock=with_lock),
+        AsyncContainer(*registries, context=context, with_lock=with_lock)
     )
