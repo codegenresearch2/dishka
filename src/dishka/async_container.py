@@ -121,9 +121,11 @@ class AsyncContainer:
                     await anext(exit_generator.callable)
                 elif exit_generator.type is FactoryType.GENERATOR:
                     next(exit_generator.callable)
-            except (StopIteration, StopAsyncIteration):
+            except StopIteration:
                 pass
-            except Exception as err:  # noqa: BLE001
+            except StopAsyncIteration:
+                pass
+            except Exception as err:
                 e = err
         if e:
             raise e
