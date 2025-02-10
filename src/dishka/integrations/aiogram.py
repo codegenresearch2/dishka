@@ -16,7 +16,7 @@ from .base import Depends, wrap_injection
 
 def inject(func):
     additional_params = [Parameter(
-        name="request_container",
+        name="dishka_container",
         annotation=Container,
         kind=Parameter.KEYWORD_ONLY,
     )]
@@ -24,7 +24,7 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=operator.itemgetter("request_container"),
+        container_getter=lambda params: params["dishka_container"],
         additional_params=additional_params,
         is_async=True,
     )
@@ -37,8 +37,8 @@ class ContainerMiddleware(BaseMiddleware):
     async def __call__(
             self, handler, event, data,
     ):
-        async with self.container_wrapper({TelegramObject: event}) as request_container:
-            data["request_container"] = request_container
+        async with self.container_wrapper({TelegramObject: event}) as subcontainer:
+            data["dishka_container"] = subcontainer
             return await handler(event, data)
 
     async def startup(self):
