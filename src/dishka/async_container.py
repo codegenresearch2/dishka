@@ -33,14 +33,9 @@ class AsyncContainer:
     ):
         self.registry = registry
         self.child_registries = child_registries
-        self.context = {type(self): self}
-        if context:
-            self.context.update(context)
+        self.context = context if context else {}
         self.parent_container = parent_container
-        if with_lock:
-            self.lock = Lock()
-        else:
-            self.lock = None
+        self.lock = Lock() if with_lock else None
         self.exits: List[Exit] = []
 
     def _create_child(
@@ -51,11 +46,11 @@ class AsyncContainer:
         return AsyncContainer(
             *self.child_registries,
             parent_container=self,
-            context=context,
+            context=context if context else self.context,
             with_lock=with_lock,
         )
 
-    def __call__(
+    async def __call__(
             self,
             context: Optional[dict] = None,
             with_lock: bool = False,
@@ -79,12 +74,6 @@ class AsyncContainer:
             generator = factory.source(*sub_dependencies)
             self.exits.append(Exit(factory.type, generator))
             return next(generator)
-        elif factory.type is FactoryType.ASYNC_GENERATOR:
-            generator = factory.source(*sub_dependencies)
-            self.exits.append(Exit(factory.type, generator))
-            return await anext(generator)
-        elif factory.type is FactoryType.ASYNC_FACTORY:
-            return await factory.source(*sub_dependencies)
         elif factory.type is FactoryType.FACTORY:
             return factory.source(*sub_dependencies)
         elif factory.type is FactoryType.VALUE:
@@ -93,10 +82,7 @@ class AsyncContainer:
             raise ValueError(f"Unsupported type {factory.type}")
 
     async def get(self, dependency_type: Type[T]) -> T:
-        lock = self.lock
-        if not lock:
-            return await self._get_unlocked(dependency_type)
-        async with lock:
+        async with self.lock:
             return await self._get_unlocked(dependency_type)
 
     async def _get_unlocked(self, dependency_type: Type[T]) -> T:
@@ -115,10 +101,10 @@ class AsyncContainer:
         e = None
         for exit_generator in self.exits:
             try:
-                if exit_generator.type is FactoryType.ASYNC_GENERATOR:
-                    await anext(exit_generator.callable)
-                elif exit_generator.type is FactoryType.GENERATOR:
+                if exit_generator.type is FactoryType.GENERATOR:
                     next(exit_generator.callable)
+                elif exit_generator.type is FactoryType.ASYNC_GENERATOR:
+                    await anext(exit_generator.callable)
             except StopIteration:
                 pass
             except StopAsyncIteration:
@@ -130,6 +116,8 @@ class AsyncContainer:
 
 
 class AsyncContextWrapper:
+    __slots__ = ("container",)
+
     def __init__(self, container: AsyncContainer):
         self.container = container
 
