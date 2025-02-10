@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from fastapi import Depends
 from dishka import Provider, Scope, make_async_container, provide
 from dishka.integrations.fastapi import inject
-from typing import Annotated
+from typing import Annotated, NewType
 
 # app core
 class DbGateway:
