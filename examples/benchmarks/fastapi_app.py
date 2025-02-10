@@ -1,7 +1,7 @@
 import logging
 from fastapi import APIRouter, FastAPI, Request
 from dishka import Provider, Scope, make_async_container, provide
-from dishka.integrations.fastapi import Depends, DishkaApp
+from dishka.integrations.fastapi import Depends, inject, DishkaApp
 from fastapi import Depends as FastapiDepends
 from typing import Callable, NewType, Iterable
 
