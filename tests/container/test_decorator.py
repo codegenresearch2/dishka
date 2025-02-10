@@ -1,33 +1,42 @@
+from dishka import Provider, Scope, alias, decorate, make_container, provide
+
+class A:
+    pass
+
+class A1(A):
+    pass
+
+class A2(A1):
+    pass
+
+class ADecorator:
+    def __init__(self, a: A):
+        self.a = a
+
 def test_simple():
-    class MyFactories(Provider):
+    class MyProvider(Provider):
         a = provide(A, scope=Scope.APP)
 
-        @decorate(source=A, provides=A)
-        def decorate_a(self, a: A) -> A:
+        @decorate
+        def decorated(self, a: A) -> A:
             return ADecorator(a)
 
-    with make_container(MyFactories(), scopes=Scope) as container:
+    with make_container(MyProvider(), scopes=Scope) as container:
         a = container.get(A)
         assert isinstance(a, ADecorator)
         assert isinstance(a.a, A)
 
 def test_alias():
-    class MyFactories(Provider):
+    class MyProvider(Provider):
         a2 = provide(A2, scope=Scope.APP)
+        a1 = alias(source=A2, provides=A1)
+        a = alias(source=A1, provides=A)
 
-        @alias(source=A2, provides=A1)
-        def alias_a2_to_a1(self, a2: A2) -> A1:
-            return a2
+        @decorate
+        def decorated(self, a: A1) -> A1:
+            return ADecorator(a)
 
-        @alias(source=A1, provides=A)
-        def alias_a1_to_a(self, a1: A1) -> A:
-            return a1
-
-        @decorate(source=A1, provides=A1)
-        def decorate_a1(self, a1: A1) -> A1:
-            return ADecorator(a1)
-
-    with make_container(MyFactories(), scopes=Scope) as container:
+    with make_container(MyProvider(), scopes=Scope) as container:
         a2 = container.get(A2)
         a1 = container.get(A1)
         a = container.get(A)
