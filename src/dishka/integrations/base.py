@@ -10,18 +10,16 @@ from typing import (
 )
 
 from dishka.container import Container
-
+from dishka.integrations.fastapi import Depends, DishkaApp
 
 class Depends:
     def __init__(self, param: Any = None):
         self.param = param
 
-
 def default_parse_dependency(
         parameter: Parameter,
         hint: Any,
 ) -> Any:
-    """ Resolve dependency type or return None if it is not a dependency """
     if get_origin(hint) is not Annotated:
         return None
     dep = next(
@@ -35,13 +33,10 @@ def default_parse_dependency(
     else:
         return dep.param
 
-
 DependencyParser = Callable[[Parameter, Any], Any]
-
 
 def wrap_injection(
         func: Callable,
-        container_getter: Callable[[tuple, dict], Container],
         remove_depends: bool = True,
         additional_params: Sequence[Parameter] = (),
         is_async: bool = False,
@@ -79,8 +74,8 @@ def wrap_injection(
             new_annotations[param.name] = param.annotation
 
     if is_async:
-        async def autoinjected_func(*args, **kwargs):
-            container = container_getter(args, kwargs)
+        async def autoinjected_func(*args, dishka_request, **kwargs):
+            container = dishka_request.state.dishka_container
             for param in additional_params:
                 kwargs.pop(param.name)
             solved = {
@@ -89,8 +84,8 @@ def wrap_injection(
             }
             return await func(*args, **kwargs, **solved)
     else:
-        def autoinjected_func(*args, **kwargs):
-            container = container_getter(args, kwargs)
+        def autoinjected_func(*args, dishka_request, **kwargs):
+            container = dishka_request.state.dishka_container
             for param in additional_params:
                 kwargs.pop(param.name)
             solved = {
