@@ -1,4 +1,4 @@
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from threading import Lock
 from typing import Callable, List, Optional, Type, TypeVar
 
@@ -14,6 +14,7 @@ T = TypeVar("T")
 class Exit:
     type: FactoryType
     callable: Callable
+    __slots__ = ("type", "callable")
 
 
 class Container:
