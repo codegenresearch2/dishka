@@ -69,10 +69,7 @@ class AsyncContainer:
     async def _get_from_parent(self, dependency_type: Type[T]) -> T:
         return await self.parent_container.get(dependency_type)
 
-    async def _get_from_self(
-            self,
-            factory: Factory,
-    ) -> T:
+    async def _get_from_self(self, factory: Factory) -> T:
         sub_dependencies = [
             await self._get_unlocked(dependency)
             for dependency in factory.dependencies
@@ -94,13 +91,6 @@ class AsyncContainer:
         else:
             raise ValueError(f"Unsupported type {factory.type}")
 
-    async def get(self, dependency_type: Type[T]) -> T:
-        lock = self.lock
-        if not lock:
-            return await self._get_unlocked(dependency_type)
-        async with lock:
-            return await self._get_unlocked(dependency_type)
-
     async def _get_unlocked(self, dependency_type: Type[T]) -> T:
         if dependency_type in self.context:
             return self.context[dependency_type]
@@ -113,6 +103,13 @@ class AsyncContainer:
         self.context[dependency_type] = solved
         return solved
 
+    async def get(self, dependency_type: Type[T]) -> T:
+        lock = self.lock
+        if not lock:
+            return await self._get_unlocked(dependency_type)
+        async with lock:
+            return await self._get_unlocked(dependency_type)
+
     async def close(self):
         e = None
         for exit_generator in self.exits:
@@ -121,11 +118,9 @@ class AsyncContainer:
                     await anext(exit_generator.callable)
                 elif exit_generator.type is FactoryType.GENERATOR:
                     next(exit_generator.callable)
-            except StopIteration:
+            except (StopIteration, StopAsyncIteration):
                 pass
-            except StopAsyncIteration:
-                pass
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 e = err
         if e:
             raise e
