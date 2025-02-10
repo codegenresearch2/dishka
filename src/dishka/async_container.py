@@ -104,8 +104,9 @@ class AsyncContainer:
         return solved
 
     async def get(self, dependency_type: Type[T]) -> T:
-        if self.lock:
-            async with self.lock:
+        lock = self.lock
+        if lock:
+            async with lock:
                 return await self._get_unlocked(dependency_type)
         return await self._get_unlocked(dependency_type)
 
@@ -117,7 +118,9 @@ class AsyncContainer:
                     await anext(exit_generator.callable)
                 elif exit_generator.type is FactoryType.GENERATOR:
                     next(exit_generator.callable)
-            except (StopIteration, StopAsyncIteration):
+            except StopIteration:
+                pass
+            except StopAsyncIteration:
                 pass
             except Exception as err:
                 e = err
