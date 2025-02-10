@@ -60,7 +60,8 @@ def test_double():
 
         @decorate
         def double_decorated(self, a: A1) -> A1:
-            return ADecorator(ADecorator(a).a)
+            decorated_a = ADecorator(a)
+            return ADecorator(decorated_a.a)
 
     with make_container(MyProvider()) as container:
         a1 = container.get(A1)
