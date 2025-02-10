@@ -4,6 +4,7 @@ __all__ = [
     "setup_dishka",
 ]
 
+import operator
 from inspect import Parameter
 from typing import Container, Sequence
 
@@ -13,10 +14,9 @@ from aiogram.types import TelegramObject
 from dishka import Provider, make_async_container
 from .base import Depends, wrap_injection
 
-
 def inject(func):
     additional_params = [Parameter(
-        name="dishka_container",
+        name="request_container",
         annotation=Container,
         kind=Parameter.KEYWORD_ONLY,
     )]
@@ -24,11 +24,10 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda _, p: p["dishka_container"],
+        container_getter=operator.itemgetter("request_container"),
         additional_params=additional_params,
         is_async=True,
     )
-
 
 class ContainerMiddleware(BaseMiddleware):
     def __init__(self, container_wrapper):
@@ -38,8 +37,8 @@ class ContainerMiddleware(BaseMiddleware):
     async def __call__(
             self, handler, event, data,
     ):
-        async with self.container({TelegramObject: event}) as subcontainer:
-            data["dishka_container"] = subcontainer
+        async with self.container_wrapper({TelegramObject: event}) as request_container:
+            data["request_container"] = request_container
             return await handler(event, data)
 
     async def startup(self):
@@ -47,7 +46,6 @@ class ContainerMiddleware(BaseMiddleware):
 
     async def shutdown(self):
         await self.container_wrapper.__aexit__(None, None, None)
-
 
 def setup_dishka(providers: Sequence[Provider], router: Router):
     middleware = ContainerMiddleware(make_async_container(*providers))
