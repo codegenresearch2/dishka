@@ -58,28 +58,34 @@ class Container:
             context: Optional[dict] = None,
             with_lock: bool = False,
     ) -> "ContextWrapper":
+        """
+        Prepare container for entering the inner scope.
+        :param context: Data which will be available in inner scope
+        :param with_lock: Whether to synchronize dependency cache or not
+        :return: context manager for inner scope
+        """
         if not self.child_registries:
             raise ValueError("No child scopes found")
         return ContextWrapper(self._create_child(context, with_lock))
 
     def _get_from_self(
             self,
-            dependency_provider: Factory,
+            factory: Factory,
     ) -> T:
         sub_dependencies = [
             self._get_unlocked(dependency)
-            for dependency in dependency_provider.dependencies
+            for dependency in factory.dependencies
         ]
-        if dependency_provider.type is FactoryType.GENERATOR:
-            generator = dependency_provider.source(*sub_dependencies)
-            self.exits.append(Exit(dependency_provider.type, generator))
+        if factory.type is FactoryType.GENERATOR:
+            generator = factory.source(*sub_dependencies)
+            self.exits.append(Exit(factory.type, generator))
             return next(generator)
-        elif dependency_provider.type is FactoryType.FACTORY:
-            return dependency_provider.source(*sub_dependencies)
-        elif dependency_provider.type is FactoryType.VALUE:
-            return dependency_provider.source
+        elif factory.type is FactoryType.FACTORY:
+            return factory.source(*sub_dependencies)
+        elif factory.type is FactoryType.VALUE:
+            return factory.source
         else:
-            raise ValueError(f"Unsupported type {dependency_provider.type}")
+            raise ValueError(f"Unsupported type {factory.type}")
 
     def get(self, dependency_type: Type[T]) -> T:
         lock = self.lock
