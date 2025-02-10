@@ -104,11 +104,10 @@ class AsyncContainer:
         return solved
 
     async def get(self, dependency_type: Type[T]) -> T:
-        lock = self.lock
-        if not lock:
-            return await self._get_unlocked(dependency_type)
-        async with lock:
-            return await self._get_unlocked(dependency_type)
+        if self.lock:
+            async with self.lock:
+                return await self._get_unlocked(dependency_type)
+        return await self._get_unlocked(dependency_type)
 
     async def close(self):
         e = None
@@ -120,7 +119,7 @@ class AsyncContainer:
                     next(exit_generator.callable)
             except (StopIteration, StopAsyncIteration):
                 pass
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 e = err
         if e:
             raise e
