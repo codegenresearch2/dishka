@@ -1,5 +1,5 @@
 __all__ = [
-    "Depends", "inject", "DishkaApp",
+    'Depends', 'inject', 'DishkaApp',
 ]
 
 from inspect import Parameter
@@ -19,7 +19,7 @@ def inject(func):
     if request_param:
         additional_params = []
     else:
-        request_param = "____dishka_request"
+        request_param = '____dishka_request'
         additional_params = [Parameter(
             name=request_param,
             annotation=Request,
@@ -42,16 +42,16 @@ async def add_request_container_middleware(request: Request, call_next):
 class DishkaApp:
     def __init__(self, providers: Sequence[Provider], app: FastAPI):
         self.app = app
-        self.app.middleware("http")(add_request_container_middleware)
+        self.app.middleware('http')(add_request_container_middleware)
         self.container_wrapper = make_async_container(*providers)
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] == "lifespan":
+        if scope['type'] == 'lifespan':
             async def my_recv():
                 message = await receive()
-                if message["type"] == "lifespan.startup":
+                if message['type'] == 'lifespan.startup':
                     self.app.state.dishka_container = await self.container_wrapper.__aenter__()
-                elif message["type"] == "lifespan.shutdown":
+                elif message['type'] == 'lifespan.shutdown':
                     await self.container_wrapper.__aexit__(None, None, None)
 
             return await self.app(scope, my_recv, send)
