@@ -38,7 +38,8 @@ def make_registries(
                 scope = dep_scopes.get(source.source)
                 if not hasattr(source, "as_factory"):
                     raise AttributeError("Alias objects must have an 'as_factory' method")
-                source = source.as_factory(scope)
+                new_dependency = type(f"Old_{source.provides.__name__}", (source.provides,), {})
+                source = source.as_factory(scope, new_dependency)
                 dep_scopes[source.provides] = scope
             elif isinstance(source, Decorator):
                 scope = dep_scopes.get(source.provides)
