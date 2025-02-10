@@ -38,7 +38,7 @@ class AsyncContainer:
         self.lock = Lock() if with_lock else None
         self.exits: List[Exit] = []
 
-    def create_child(
+    def _create_child(
             self,
             context: Optional[dict],
             with_lock: bool,
@@ -55,19 +55,25 @@ class AsyncContainer:
             context: Optional[dict] = None,
             with_lock: bool = False,
     ) -> "AsyncContextWrapper":
+        """
+        Prepare container for entering the inner scope.
+        :param context: Data which will be available in the inner scope
+        :param with_lock: Whether to synchronize dependency cache or not
+        :return: async context manager for inner scope
+        """
         if not self.child_registries:
             raise ValueError("No child scopes found")
-        return AsyncContextWrapper(self.create_child(context, with_lock))
+        return AsyncContextWrapper(self._create_child(context, with_lock))
 
-    async def get_from_parent(self, dependency_type: Type[T]) -> T:
+    async def _get_from_parent(self, dependency_type: Type[T]) -> T:
         return await self.parent_container.get(dependency_type)
 
-    async def get_from_self(
+    async def _get_from_self(
             self,
             dep_factory: Factory,
     ) -> T:
         sub_dependencies = [
-            await self.get_unlocked(dependency)
+            await self._get_unlocked(dependency)
             for dependency in dep_factory.dependencies
         ]
         if dep_factory.type is FactoryType.GENERATOR:
@@ -90,19 +96,19 @@ class AsyncContainer:
     async def get(self, dependency_type: Type[T]) -> T:
         lock = self.lock
         if not lock:
-            return await self.get_unlocked(dependency_type)
+            return await self._get_unlocked(dependency_type)
         async with lock:
-            return await self.get_unlocked(dependency_type)
+            return await self._get_unlocked(dependency_type)
 
-    async def get_unlocked(self, dependency_type: Type[T]) -> T:
+    async def _get_unlocked(self, dependency_type: Type[T]) -> T:
         if dependency_type in self.context:
             return self.context[dependency_type]
         provider = self.registry.get_provider(dependency_type)
         if not provider:
             if not self.parent_container:
                 raise ValueError(f"No provider found for {dependency_type!r}")
-            return await self.parent_container.get(dependency_type)
-        solved = await self.get_from_self(provider)
+            return await self._get_from_parent(dependency_type)
+        solved = await self._get_from_self(provider)
         self.context[dependency_type] = solved
         return solved
 
@@ -114,7 +120,9 @@ class AsyncContainer:
                     await anext(exit_generator.callable)
                 elif exit_generator.type is FactoryType.GENERATOR:
                     next(exit_generator.callable)
-            except (StopIteration, StopAsyncIteration):
+            except StopIteration:
+                pass
+            except StopAsyncIteration:
                 pass
             except Exception as err:  # noqa: BLE001
                 e = err
