@@ -33,7 +33,7 @@ class AsyncContainer:
     ):
         self.registry = registry
         self.child_registries = child_registries
-        self.context = context if context else {}
+        self.context = {type(self): self} if context is None else context
         self.parent_container = parent_container
         self.lock = Lock() if with_lock else None
         self.exits: List[Exit] = []
@@ -46,7 +46,7 @@ class AsyncContainer:
         return AsyncContainer(
             *self.child_registries,
             parent_container=self,
-            context=context if context else self.context,
+            context=context if context is not None else self.context,
             with_lock=with_lock,
         )
 
@@ -78,11 +78,17 @@ class AsyncContainer:
             return factory.source(*sub_dependencies)
         elif factory.type is FactoryType.VALUE:
             return factory.source
+        elif factory.type is FactoryType.ASYNC_GENERATOR:
+            generator = factory.source(*sub_dependencies)
+            self.exits.append(Exit(factory.type, generator))
+            return await anext(generator)
+        elif factory.type is FactoryType.ASYNC_FACTORY:
+            return await factory.source(*sub_dependencies)
         else:
             raise ValueError(f"Unsupported type {factory.type}")
 
     async def get(self, dependency_type: Type[T]) -> T:
-        async with self.lock:
+        async with self.lock if self.lock else Lock() as _:
             return await self._get_unlocked(dependency_type)
 
     async def _get_unlocked(self, dependency_type: Type[T]) -> T:
@@ -101,10 +107,12 @@ class AsyncContainer:
         e = None
         for exit_generator in self.exits:
             try:
-                if exit_generator.type is FactoryType.GENERATOR:
-                    next(exit_generator.callable)
-                elif exit_generator.type is FactoryType.ASYNC_GENERATOR:
+                if exit_generator.type is FactoryType.ASYNC_GENERATOR:
                     await anext(exit_generator.callable)
+                elif exit_generator.type is FactoryType.GENERATOR:
+                    next(exit_generator.callable)
+                elif exit_generator.type is FactoryType.ASYNC_FACTORY:
+                    await exit_generator.callable()
             except StopIteration:
                 pass
             except StopAsyncIteration:
@@ -116,8 +124,6 @@ class AsyncContainer:
 
 
 class AsyncContextWrapper:
-    __slots__ = ("container",)
-
     def __init__(self, container: AsyncContainer):
         self.container = container
 
