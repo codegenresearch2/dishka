@@ -9,13 +9,11 @@ from .scope import BaseScope, Scope
 
 T = TypeVar("T")
 
-
 @dataclass
 class Exit:
     __slots__ = ("type", "callable")
     type: FactoryType
     callable: Callable
-
 
 class Container:
     __slots__ = (
@@ -28,14 +26,14 @@ class Container:
             registry: Registry,
             *child_registries: Registry,
             parent_container: Optional["Container"] = None,
-            context: Optional[dict] = None,
+            initial_context: Optional[dict] = None,
             with_lock: bool = False,
     ):
         self.registry = registry
         self.child_registries = child_registries
         self.context = {type(self): self}
-        if context:
-            self.context.update(context)
+        if initial_context:
+            self.context.update(initial_context)
         self.parent_container = parent_container
         if with_lock:
             self.lock = Lock()
@@ -43,7 +41,7 @@ class Container:
             self.lock = None
         self.exits: List[Exit] = []
 
-    def _create_child(
+    def create_child(
             self,
             context: Optional[dict],
             with_lock: bool,
@@ -51,7 +49,7 @@ class Container:
         return Container(
             *self.child_registries,
             parent_container=self,
-            context=context,
+            initial_context=context,
             with_lock=with_lock,
         )
 
@@ -62,38 +60,44 @@ class Container:
     ) -> "ContextWrapper":
         """
         Prepare container for entering the inner scope.
-        :param context: Data which will available in inner scope
-        :param with_lock: Whether synchronize dependency cache or not
+        :param context: Data which will be available in inner scope
+        :param with_lock: Whether to synchronize dependency cache or not
         :return: context manager for inner scope
         """
         if not self.child_registries:
-            raise ValueError("No child scopes found")
-        return ContextWrapper(self._create_child(context, with_lock))
+            raise ValueError("No child registries found")
+        return ContextWrapper(self.create_child(context, with_lock))
 
-    def _get_from_self(self, factory: Factory) -> T:
+    def get_from_parent(self, dependency_type: Type[T]) -> T:
+        return self.parent_container.get(dependency_type)
+
+    def create_dependency(
+            self,
+            dep_provider: Factory,
+    ) -> T:
         sub_dependencies = [
-            self._get_unlocked(dependency)
-            for dependency in factory.dependencies
+            self.get_unlocked(dependency)
+            for dependency in dep_provider.dependencies
         ]
-        if factory.type is FactoryType.GENERATOR:
-            generator = factory.source(*sub_dependencies)
-            self.exits.append(Exit(factory.type, generator))
+        if dep_provider.type is FactoryType.GENERATOR:
+            generator = dep_provider.source(*sub_dependencies)
+            self.exits.append(Exit(dep_provider.type, generator))
             return next(generator)
-        elif factory.type is FactoryType.FACTORY:
-            return factory.source(*sub_dependencies)
-        elif factory.type is FactoryType.VALUE:
-            return factory.source
+        elif dep_provider.type is FactoryType.FACTORY:
+            return dep_provider.source(*sub_dependencies)
+        elif dep_provider.type is FactoryType.VALUE:
+            return dep_provider.source
         else:
-            raise ValueError(f"Unsupported type {factory.type}")
+            raise ValueError(f"Unsupported type {dep_provider.type}")
 
     def get(self, dependency_type: Type[T]) -> T:
         lock = self.lock
         if not lock:
-            return self._get_unlocked(dependency_type)
+            return self.get_unlocked(dependency_type)
         with lock:
-            return self._get_unlocked(dependency_type)
+            return self.get_unlocked(dependency_type)
 
-    def _get_unlocked(self, dependency_type: Type[T]) -> T:
+    def get_unlocked(self, dependency_type: Type[T]) -> T:
         if dependency_type in self.context:
             return self.context[dependency_type]
         provider = self.registry.get_provider(dependency_type)
@@ -101,7 +105,7 @@ class Container:
             if not self.parent_container:
                 raise ValueError(f"No provider found for {dependency_type!r}")
             return self.parent_container.get(dependency_type)
-        solved = self._get_from_self(provider)
+        solved = self.create_dependency(provider)
         self.context[dependency_type] = solved
         return solved
 
@@ -118,7 +122,6 @@ class Container:
         if e:
             raise e
 
-
 class ContextWrapper:
     __slots__ = ("container",)
 
@@ -131,14 +134,13 @@ class ContextWrapper:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.container.close()
 
-
 def make_container(
         *providers: Provider,
         scopes: Type[BaseScope] = Scope,
-        context: Optional[dict] = None,
+        initial_context: Optional[dict] = None,
         with_lock: bool = False,
 ) -> ContextWrapper:
     registries = make_registries(*providers, scopes=scopes)
     return ContextWrapper(
-        Container(*registries, context=context, with_lock=with_lock),
+        Container(*registries, initial_context=initial_context, with_lock=with_lock),
     )
