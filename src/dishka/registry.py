@@ -13,14 +13,14 @@ class Registry:
         self._factories: dict[Type, Factory] = {}
         self.scope = scope
 
-    def add_factory(self, factory: Factory):
+    def add_provider(self, factory: Factory):
         self._factories[factory.provides] = factory
 
-    def get_factory(self, dependency: Any) -> Factory:
+    def get_provider(self, dependency: Any) -> Factory:
         return self._factories.get(dependency)
 
 
-def create_registries(
+def make_registries(
         *providers: Provider, scopes: Type[BaseScope],
 ) -> List[Registry]:
     dep_scopes = {}
@@ -37,7 +37,7 @@ def create_registries(
     for provider in providers:
         for source in provider.factories:
             scope = source.scope
-            registries[scope].add_factory(source)
+            registries[scope].add_provider(source)
         for source in provider.aliases:
             alias_source = source.source
             visited_types = [alias_source]
@@ -49,7 +49,7 @@ def create_registries(
             scope = dep_scopes[alias_source]
             dep_scopes[source.provides] = scope
             source = source.as_factory(scope)
-            registries[scope].add_factory(source)
+            registries[scope].add_provider(source)
         for source in provider.decorators:
             provides = source.provides
             scope = dep_scopes[provides]
@@ -59,12 +59,12 @@ def create_registries(
                 source.provides,
             )
             decorator_depth[provides] += 1
-            old_provider = registry.get_factory(provides)
+            old_provider = registry.get_provider(provides)
             old_provider.provides = undecorated_type
-            registry.add_factory(old_provider)
+            registry.add_provider(old_provider)
             source = source.as_factory(
                 scope, undecorated_type,
             )
-            registries[scope].add_factory(source)
+            registries[scope].add_provider(source)
 
     return list(registries.values())
