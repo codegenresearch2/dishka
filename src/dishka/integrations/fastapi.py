@@ -56,6 +56,6 @@ class DishkaApp:
                 elif message['type'] == 'lifespan.shutdown':
                     await self.container_wrapper.__aexit__(None, None, None)
 
-            await self.app(scope, my_recv, send)
+            return await self.app(scope, my_recv, send)
         else:
             return await self.app(scope, receive, send)
