@@ -12,16 +12,16 @@ from .base import Depends, wrap_injection
 
 def inject(func):
     hints = get_type_hints(func)
-    requests_param = next(
+    request_param = next(
         (name for name, hint in hints.items() if hint is Request),
         None,
     )
-    if requests_param:
+    if request_param:
         additional_params = []
     else:
-        requests_param = "____@request"
+        request_param = "____dishka_request"
         additional_params = [Parameter(
-            name=requests_param,
+            name=request_param,
             annotation=Request,
             kind=Parameter.KEYWORD_ONLY,
         )]
@@ -29,30 +29,32 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda kw: kw[requests_param].state.dishka_container,
+        container_getter=lambda _, p: p[request_param].state.dishka_container,
         additional_params=additional_params,
         is_async=True,
     )
 
+async def add_request_container_middleware(request: Request, call_next):
+    async with request.app.state.dishka_container(
+            {Request: request},
+    ) as request_container:
+        request.state.dishka_container = request_container
+        return await call_next(request)
+
 class DishkaApp:
     def __init__(self, providers: Sequence[Provider], app: FastAPI):
         self.app = app
+        self.app.middleware("http")(add_request_container_middleware)
         self.container_wrapper = make_async_container(*providers)
-
-    async def start_container(self):
-        self.app.state.dishka_container = await self.container_wrapper.__aenter__()
-
-    async def stop_container(self):
-        await self.container_wrapper.__aexit__(None, None, None)
 
     async def __call__(self, scope, receive, send):
         if scope['type'] == 'lifespan':
             async def my_recv():
                 message = await receive()
                 if message['type'] == 'lifespan.startup':
-                    await self.start_container()
+                    self.app.state.dishka_container = await self.container_wrapper.__aenter__()
                 elif message['type'] == 'lifespan.shutdown':
-                    await self.stop_container()
+                    await self.container_wrapper.__aexit__(None, None, None)
 
             await self.app(scope, my_recv, send)
         else:
