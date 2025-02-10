@@ -1,44 +1,65 @@
-from dishka import Provider, Scope, alias, decorate, make_container, provide
+from collections import defaultdict
+from typing import Type, TypeVar
 
+from dishka import Provider, Scope, alias, make_container, provide
+
+T = TypeVar('T')
 
 class A:
     pass
 
-
 class A1(A):
     pass
 
-
 class A2(A1):
     pass
-
 
 class ADecorator:
     def __init__(self, a: A):
         self.a = a
 
+class MyProvider(Provider):
+    factory_methods = defaultdict(dict)
+
+    @classmethod
+    def register_factory(cls, provides: Type[T], scope: Scope) -> callable:
+        def decorator(func: callable) -> callable:
+            cls.factory_methods[provides][scope] = func
+            return func
+        return decorator
+
+    @register_factory(A, Scope.APP)
+    @provide(scope=Scope.APP)
+    def create_a(self) -> A:
+        return A()
+
+    @register_factory(ADecorator, Scope.APP)
+    @provide(scope=Scope.APP, provides=A)
+    def create_decorated_a(self, a: A) -> ADecorator:
+        return ADecorator(a)
+
+    @register_factory(A2, Scope.APP)
+    @provide(scope=Scope.APP)
+    def create_a2(self) -> A2:
+        return A2()
+
+    @register_factory(A1, Scope.APP)
+    @alias(source=A2, provides=A1)
+    def alias_a1_to_a2(self, a2: A2) -> A1:
+        return a2
+
+    @register_factory(A, Scope.APP)
+    @alias(source=A1, provides=A)
+    def alias_a_to_a1(self, a1: A1) -> A:
+        return a1
 
 def test_simple():
-    class MyProvider(Provider):
-        a = provide(A, scope=Scope.APP)
-        ad = decorate(ADecorator, provides=A)
-
     with make_container(MyProvider()) as container:
         a = container.get(A)
         assert isinstance(a, ADecorator)
         assert isinstance(a.a, A)
 
-
 def test_alias():
-    class MyProvider(Provider):
-        a2 = provide(A2, scope=Scope.APP)
-        a1 = alias(source=A2, provides=A1)
-        a = alias(source=A1, provides=A)
-
-        @decorate
-        def decorated(self, a: A1) -> A1:
-            return ADecorator(a)
-
     with make_container(MyProvider()) as container:
         a1 = container.get(A1)
         assert isinstance(a1, ADecorator)
@@ -50,15 +71,3 @@ def test_alias():
 
         a = container.get(A)
         assert a is a1
-
-def test_double():
-    class MyProvider(Provider):
-        a = provide(A, scope=Scope.APP)
-        ad = decorate(ADecorator, provides=A)
-        ad2 = decorate(ADecorator, provides=A)
-
-    with make_container(MyProvider()) as container:
-        a = container.get(A)
-        assert isinstance(a, ADecorator)
-        assert isinstance(a.a, ADecorator)
-        assert isinstance(a.a.a, A)
