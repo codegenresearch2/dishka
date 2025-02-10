@@ -40,7 +40,7 @@ DependencyParser = Callable[[Parameter, Any], Any]
 
 def wrap_injection(
         func: Callable,
-        container_getter: Callable[..., Container],
+        container_getter: Callable[[tuple, dict], Container],
         remove_depends: bool = True,
         additional_params: Sequence[Parameter] = (),
         is_async: bool = False,
@@ -79,7 +79,7 @@ def wrap_injection(
 
     if is_async:
         async def autoinjected_func(*args, **kwargs):
-            container = container_getter(*args, **kwargs)
+            container = container_getter(args, kwargs)
             for param in additional_params:
                 kwargs.pop(param.name)
             solved = {
@@ -89,7 +89,7 @@ def wrap_injection(
             return await func(*args, **kwargs, **solved)
     else:
         def autoinjected_func(*args, **kwargs):
-            container = container_getter(*args, **kwargs)
+            container = container_getter(args, kwargs)
             for param in additional_params:
                 kwargs.pop(param.name)
             solved = {
