@@ -3,6 +3,7 @@ from collections import defaultdict
 from .dependency_source import Alias, Decorator, Factory
 from .provider import Provider
 from .scope import BaseScope
+from typing import NewType
 
 
 class Registry:
@@ -12,8 +13,8 @@ class Registry:
         self._factories: Dict[Type, Factory] = {}
         self.scope = scope
 
-    def add_provider(self, provider: Factory):
-        self._factories[provider.provides] = provider
+    def add_provider(self, factory: Factory):
+        self._factories[factory.provides] = factory
 
     def get_provider(self, dependency: Any) -> Factory:
         return self._factories.get(dependency)
@@ -29,6 +30,7 @@ def make_registries(
                 dep_scopes[source.provides] = source.scope
 
     registries = {scope: Registry(scope) for scope in scopes}
+    decorator_depth = {}
 
     for provider in providers:
         for source in provider.dependency_sources:
@@ -41,10 +43,10 @@ def make_registries(
             elif isinstance(source, Decorator):
                 scope = dep_scopes[source.provides]
                 registry = registries[scope]
-                undecorated_type = NewType(
-                    f"Old_{source.provides.__name__}",
-                    source.provides,
-                )
+                depth = decorator_depth.get(source.provides, 0) + 1
+                decorator_depth[source.provides] = depth
+                undecorated_type_name = f"Old_{source.provides.__name__}_{depth}"
+                undecorated_type = NewType(undecorated_type_name, source.provides)
                 old_provider = registry.get_provider(source.provides)
                 old_provider.provides = undecorated_type
                 registry.add_provider(old_provider)
