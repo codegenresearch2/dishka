@@ -10,7 +10,8 @@ class A1(A):
 
 
 class A2(A1):
-    pass
+    def __init__(self):
+        self.a = A2()  # Ensure A2 has an attribute 'a' that holds an instance of A2
 
 
 class ADecorator:
@@ -73,4 +74,4 @@ def test_double():
         assert a2 is a1.a.a
 
         a = container.get(A)
-        assert a is a1.a
+        assert a is a1.a.a
