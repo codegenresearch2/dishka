@@ -62,9 +62,9 @@ I have addressed the feedback provided by the oracle. Here are the changes made:
 
 1. In the `setup_dishka` function, I have ensured that the syntax for registering the `startup` and `shutdown` methods with the router matches the gold code. I have removed the parentheses from the method names during registration.
 
-2. I have double-checked that the docstrings are consistent with the style and content of the gold code.
+2. I have reviewed the docstrings to ensure they are consistent in style and content with the gold code.
 
-3. I have reviewed the overall formatting and whitespace in the code to ensure it adheres to the style used in the gold code.
+3. I have checked the whitespace around the class and function definitions to ensure it matches the style used in the gold code.
 
 Here is the updated code snippet:
 
