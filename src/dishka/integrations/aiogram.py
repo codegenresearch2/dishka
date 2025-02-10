@@ -53,8 +53,8 @@ class ContainerMiddleware(BaseMiddleware):
 def setup_dishka(providers: Sequence[Provider], router: Router):
     middleware = ContainerMiddleware(make_async_container(*providers))
 
-    router.startup().append(middleware.startup())
-    router.shutdown().append(middleware.shutdown())
+    router.startup()()
+    router.shutdown()()
 
     for observer in router.observers.values():
         observer.middleware(middleware)
