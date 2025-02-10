@@ -30,7 +30,7 @@ def make_registries(
                 dep_scopes[source.provides] = source.scope
 
     registries = {scope: Registry(scope) for scope in scopes}
-    decorator_depth = {}
+    decorator_depth = defaultdict(int)
 
     for provider in providers:
         for source in provider.dependency_sources:
@@ -43,7 +43,7 @@ def make_registries(
             elif isinstance(source, Decorator):
                 scope = dep_scopes[source.provides]
                 registry = registries[scope]
-                depth = decorator_depth.get(source.provides, 0) + 1
+                depth = decorator_depth[source.provides] + 1
                 decorator_depth[source.provides] = depth
                 undecorated_type_name = f"Old_{source.provides.__name__}_{depth}"
                 undecorated_type = NewType(undecorated_type_name, source.provides)
