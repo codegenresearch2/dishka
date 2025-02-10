@@ -59,11 +59,11 @@ class AsyncContainer:
             with_lock: bool = False,
     ) -> "AsyncContextWrapper":
         """
-        Prepare container for entering the inner scope.
+        Prepare the container for entering an inner scope.
 
-        :param context: Data which will be available in the inner scope
+        :param context: Data that will be available in the inner scope
         :param with_lock: Whether to synchronize dependency cache or not
-        :return: async context manager for inner scope
+        :return: An async context manager for the inner scope
         """
         if not self.child_registries:
             raise ValueError("No child scopes found")
@@ -74,28 +74,28 @@ class AsyncContainer:
 
     async def _get_from_self(
             self,
-            dependency_factory: Factory,
+            factory: Factory,
     ) -> T:
         sub_dependencies = [
             await self._get_unlocked(dependency)
-            for dependency in dependency_factory.dependencies
+            for dependency in factory.dependencies
         ]
-        if dependency_factory.type is FactoryType.GENERATOR:
-            generator = dependency_factory.source(*sub_dependencies)
-            self.exits.append(Exit(dependency_factory.type, generator))
+        if factory.type is FactoryType.GENERATOR:
+            generator = factory.source(*sub_dependencies)
+            self.exits.append(Exit(factory.type, generator))
             return next(generator)
-        elif dependency_factory.type is FactoryType.ASYNC_GENERATOR:
-            generator = dependency_factory.source(*sub_dependencies)
-            self.exits.append(Exit(dependency_factory.type, generator))
+        elif factory.type is FactoryType.ASYNC_GENERATOR:
+            generator = factory.source(*sub_dependencies)
+            self.exits.append(Exit(factory.type, generator))
             return await anext(generator)
-        elif dependency_factory.type is FactoryType.ASYNC_FACTORY:
-            return await dependency_factory.source(*sub_dependencies)
-        elif dependency_factory.type is FactoryType.FACTORY:
-            return dependency_factory.source(*sub_dependencies)
-        elif dependency_factory.type is FactoryType.VALUE:
-            return dependency_factory.source
+        elif factory.type is FactoryType.ASYNC_FACTORY:
+            return await factory.source(*sub_dependencies)
+        elif factory.type is FactoryType.FACTORY:
+            return factory.source(*sub_dependencies)
+        elif factory.type is FactoryType.VALUE:
+            return factory.source
         else:
-            raise ValueError(f"Unsupported type {dependency_factory.type}")
+            raise ValueError(f"Unsupported type {factory.type}")
 
     async def get(self, dependency_type: Type[T]) -> T:
         lock = self.lock
@@ -124,11 +124,9 @@ class AsyncContainer:
                     await anext(exit_generator.callable)
                 elif exit_generator.type is FactoryType.GENERATOR:
                     next(exit_generator.callable)
-            except StopIteration:
+            except (StopIteration, StopAsyncIteration):
                 pass
-            except StopAsyncIteration:
-                pass
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 e = err
         if e:
             raise e
