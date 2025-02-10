@@ -59,11 +59,11 @@ class Container:
             with_lock: bool = False,
     ) -> "ContextWrapper":
         """
-        Prepare container for entering the inner scope.
+        Prepare the container for entering an inner scope.
 
-        :param context: Data which will be available in the inner scope
+        :param context: Data that will be available in the inner scope
         :param with_lock: Whether to synchronize dependency cache or not
-        :return: context manager for the inner scope
+        :return: Context manager for the inner scope
         """
         if not self.child_registries:
             raise ValueError("No child scopes found")
@@ -108,7 +108,7 @@ class Container:
         return solved
 
     def close(self):
-        exceptions = []
+        exception = None
         for exit_generator in self.exits:
             try:
                 if exit_generator.type is FactoryType.GENERATOR:
@@ -116,9 +116,9 @@ class Container:
             except StopIteration:
                 pass
             except Exception as err:
-                exceptions.append(err)
-        if exceptions:
-            raise ExceptionGroup("Errors occurred during container closure", exceptions)
+                exception = err
+        if exception:
+            raise exception
 
 class ContextWrapper:
     __slots__ = ("container",)
@@ -142,11 +142,3 @@ def make_container(
     return ContextWrapper(
         Container(*registries, context=context, with_lock=with_lock),
     )
-
-I have addressed the feedback provided by the oracle and made the necessary changes to the code. Here's the updated code:
-
-1. **Test Case Feedback**: The test case feedback indicated that there was a `SyntaxError` caused by an unterminated string literal in the code. I have reviewed the code and ensured that all string literals are properly terminated with matching quotes. This includes checking for any comments or documentation strings that may have been inadvertently left open.
-
-2. **Oracle Feedback**: I have no feedback to address in this case.
-
-The updated code should now compile without syntax errors, allowing the tests to run successfully. Additionally, I have ensured that any comments or documentation are clear and correctly formatted to maintain code readability and prevent similar issues in the future.
