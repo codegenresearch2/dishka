@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, List, NewType, Type, Dict, Type as TypeAlias
+from typing import Any, List, NewType, Type, Dict
 
 from .dependency_source import Factory
 from .provider import Provider
@@ -10,7 +10,7 @@ class Registry:
     __slots__ = ("scope", "_factories")
 
     def __init__(self, scope: BaseScope):
-        self._factories: Dict[Type, Factory] = {}
+        self._factories: dict[Type, Factory] = {}
         self.scope = scope
 
     def add_provider(self, factory: Factory):
@@ -23,8 +23,8 @@ class Registry:
 def make_registries(
         *providers: Provider, scopes: Type[BaseScope],
 ) -> List[Registry]:
-    dep_scopes: Dict[Type, BaseScope] = {}
-    alias_sources: Dict[Type, Type] = {}
+    dep_scopes: dict[Type, BaseScope] = {}
+    alias_sources = {}
     for provider in providers:
         for source in provider.factories:
             dep_scopes[source.provides] = source.scope
@@ -32,7 +32,7 @@ def make_registries(
             alias_sources[source.provides] = source.source
 
     registries = {scope: Registry(scope) for scope in scopes}
-    decorator_depth: Dict[Type, int] = defaultdict(int)
+    decorator_depth: dict[Type, int] = defaultdict(int)
 
     for provider in providers:
         for source in provider.factories:
