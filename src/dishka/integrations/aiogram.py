@@ -25,7 +25,7 @@ def inject(func):
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda p: p["dishka_container"],
+        container_getter=lambda p, _: p["dishka_container"],
         additional_params=additional_params,
         is_async=True,
     )
@@ -53,8 +53,8 @@ class ContainerMiddleware(BaseMiddleware):
 def setup_dishka(providers: Sequence[Provider], router: Router):
     middleware = ContainerMiddleware(make_async_container(*providers))
 
-    router.startup().append(middleware.startup)
-    router.shutdown().append(middleware.shutdown)
+    router.startup().append(middleware.startup())
+    router.shutdown().append(middleware.shutdown())
 
     for observer in router.observers.values():
         observer.middleware(middleware)
