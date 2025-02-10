@@ -1,7 +1,8 @@
 import logging
 from fastapi import APIRouter, FastAPI, Request
 from dishka import Provider, Scope, make_async_container, provide
-from dishka.inject import Depends
+from dishka.integrations.fastapi import Depends
+from fastapi import Depends as FastapiDepends
 from typing import Callable, NewType, Iterable
 
 # framework level
@@ -71,12 +72,12 @@ async def index(
 @router.get("/f")
 async def index_f(
         *,
-        value: Annotated[A, Depends(Stub(A))],
-        value2: Annotated[A, Depends(Stub(A))],
+        value: Annotated[A, FastapiDepends(Stub(A))],
+        value2: Annotated[A, FastapiDepends(Stub(A))],
 ) -> str:
     return f"{value} {value is value2}"
 
-def new_a(b: B = Depends(Stub(B)), c: C = Depends(Stub(C))) -> A:
+def new_a(b: B = FastapiDepends(Stub(B)), c: C = FastapiDepends(Stub(C))) -> A:
     return A(b, c)
 
 def create_app() -> FastAPI:
@@ -87,7 +88,10 @@ def create_app() -> FastAPI:
     app.dependency_overrides[A] = new_a
     app.dependency_overrides[B] = lambda: B(1)
     app.dependency_overrides[C] = lambda: C(1)
-    return app
+    return DishkaApp(
+        providers=[MyProvider()],
+        app=app,
+    )
 
 if __name__ == "__main__":
     uvicorn.run(create_app(), host="0.0.0.0", port=8000)
