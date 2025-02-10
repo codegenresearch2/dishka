@@ -12,8 +12,8 @@ class Registry:
         self.scope = scope
         self._factories: Dict[Type, Factory] = {}
 
-    def add_provider(self, provider: Factory):
-        self._factories[provider.provides] = provider
+    def add_provider(self, factory: Factory):
+        self._factories[factory.provides] = factory
 
     def get_provider(self, dependency: Any) -> Factory:
         return self._factories.get(dependency)
@@ -44,12 +44,9 @@ def make_registries(
                 scope = dep_scopes.get(source.provides)
                 if not hasattr(source, "as_factory"):
                     raise AttributeError("Decorator objects must have an 'as_factory' method")
-                source = source.as_factory(scope)
-                undecorated_type = type(f"Old_{source.provides.__name__}", (source.provides,), {})
-                old_provider = registries[scope].get_provider(source.provides)
-                old_provider.provides = undecorated_type
-                registries[scope].add_provider(old_provider)
-                source = source.as_factory(scope, undecorated_type)
+                new_dependency = type(f"Old_{source.provides.__name__}", (source.provides,), {})
+                source = source.as_factory(scope, new_dependency)
+                dep_scopes[source.provides] = scope
             else:
                 raise ValueError("Unknown dependency source type")
             registries[scope].add_provider(source)
