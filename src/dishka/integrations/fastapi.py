@@ -1,9 +1,9 @@
 __all__ = [
-    'Depends', "inject", "DishkaApp",
+    'Depends', 'inject', 'DishkaApp',
 ]
 
 from inspect import Parameter
-from typing import Sequence, get_type_hints
+from typing import Sequence
 
 from fastapi import FastAPI, Request
 
@@ -12,25 +12,16 @@ from .base import Depends, wrap_injection
 
 
 def inject(func):
-    hints = get_type_hints(func)
-    request_param = next(
-        (name for name, hint in hints.items() if hint is Request),
-        None,
-    )
-    if request_param:
-        additional_params = []
-    else:
-        request_param = "____dishka_request"
-        additional_params = [Parameter(
-            name=request_param,
-            annotation=Request,
-            kind=Parameter.KEYWORD_ONLY,
-        )]
+    additional_params = [Parameter(
+        name="request",
+        annotation=Request,
+        kind=Parameter.KEYWORD_ONLY,
+    )]
 
     return wrap_injection(
         func=func,
         remove_depends=True,
-        container_getter=lambda _, p: p[request_param].state.dishka_container,
+        container_getter=lambda kw: kw['request'].state.dishka_container,
         additional_params=additional_params,
         is_async=True,
     )
@@ -60,6 +51,6 @@ class DishkaApp:
                 elif message['type'] == 'lifespan.shutdown':
                     await self.container_wrapper.__aexit__(None, None, None)
 
-            return await self.app(scope, my_recv, send)
+            await self.app(scope, my_recv, send)
         else:
             return await self.app(scope, receive, send)
