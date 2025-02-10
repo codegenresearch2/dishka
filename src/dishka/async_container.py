@@ -91,6 +91,12 @@ class AsyncContainer:
         else:
             raise ValueError(f"Unsupported type {factory.type}")
 
+    async def get(self, dependency_type: Type[T]) -> T:
+        if self.lock:
+            async with self.lock:
+                return await self._get_unlocked(dependency_type)
+        return await self._get_unlocked(dependency_type)
+
     async def _get_unlocked(self, dependency_type: Type[T]) -> T:
         if dependency_type in self.context:
             return self.context[dependency_type]
@@ -103,13 +109,6 @@ class AsyncContainer:
         self.context[dependency_type] = solved
         return solved
 
-    async def get(self, dependency_type: Type[T]) -> T:
-        lock = self.lock
-        if lock:
-            async with lock:
-                return await self._get_unlocked(dependency_type)
-        return await self._get_unlocked(dependency_type)
-
     async def close(self):
         e = None
         for exit_generator in self.exits:
@@ -118,9 +117,7 @@ class AsyncContainer:
                     await anext(exit_generator.callable)
                 elif exit_generator.type is FactoryType.GENERATOR:
                     next(exit_generator.callable)
-            except StopIteration:
-                pass
-            except StopAsyncIteration:
+            except (StopIteration, StopAsyncIteration):
                 pass
             except Exception as err:
                 e = err
