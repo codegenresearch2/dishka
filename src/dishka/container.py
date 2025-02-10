@@ -12,10 +12,10 @@ T = TypeVar("T")
 @dataclass
 class Exit:
     __slots__ = ("type", "callable")
-    factory_type: FactoryType
+    type: FactoryType
     callable: Callable
 
-class DependencyContainer:
+class Container:
     __slots__ = (
         "registry", "child_registries", "context", "parent_container",
         "lock", "exits",
@@ -25,9 +25,9 @@ class DependencyContainer:
             self,
             registry: Registry,
             *child_registries: Registry,
-            parent_container: Optional["DependencyContainer"] = None,
+            parent_container: Optional["Container"] = None,
             context: Optional[dict] = None,
-            use_lock: bool = False,
+            with_lock: bool = False,
     ):
         self.registry = registry
         self.child_registries = child_registries
@@ -35,48 +35,39 @@ class DependencyContainer:
         if context:
             self.context.update(context)
         self.parent_container = parent_container
-        if use_lock:
+        if with_lock:
             self.lock = Lock()
         else:
             self.lock = None
         self.exits: List[Exit] = []
 
-    def create_child(
+    def _create_child(
             self,
             context: Optional[dict],
-            use_lock: bool,
-    ) -> "DependencyContainer":
-        return DependencyContainer(
+            with_lock: bool,
+    ) -> "Container":
+        return Container(
             *self.child_registries,
             parent_container=self,
             context=context,
-            use_lock=use_lock,
+            with_lock=with_lock,
         )
 
     def __call__(
             self,
             context: Optional[dict] = None,
-            use_lock: bool = False,
+            with_lock: bool = False,
     ) -> "ContextWrapper":
-        """
-        Prepare container for entering the inner scope.
-        :param context: Data which will be available in inner scope
-        :param use_lock: Whether to synchronize dependency cache or not
-        :return: context manager for inner scope
-        """
         if not self.child_registries:
             raise ValueError("No child scopes found")
-        return ContextWrapper(self.create_child(context, use_lock))
+        return ContextWrapper(self._create_child(context, with_lock))
 
-    def get_from_parent(self, dependency_type: Type[T]) -> T:
-        return self.parent_container.get(dependency_type)
-
-    def get_from_self(
+    def _get_from_self(
             self,
             dependency_provider: Factory,
     ) -> T:
         sub_dependencies = [
-            self.get_unlocked(dependency)
+            self._get_unlocked(dependency)
             for dependency in dependency_provider.dependencies
         ]
         if dependency_provider.type is FactoryType.GENERATOR:
@@ -93,11 +84,11 @@ class DependencyContainer:
     def get(self, dependency_type: Type[T]) -> T:
         lock = self.lock
         if not lock:
-            return self.get_unlocked(dependency_type)
+            return self._get_unlocked(dependency_type)
         with lock:
-            return self.get_unlocked(dependency_type)
+            return self._get_unlocked(dependency_type)
 
-    def get_unlocked(self, dependency_type: Type[T]) -> T:
+    def _get_unlocked(self, dependency_type: Type[T]) -> T:
         if dependency_type in self.context:
             return self.context[dependency_type]
         provider = self.registry.get_provider(dependency_type)
@@ -105,7 +96,7 @@ class DependencyContainer:
             if not self.parent_container:
                 raise ValueError(f"No provider found for {dependency_type!r}")
             return self.parent_container.get(dependency_type)
-        solved = self.get_from_self(provider)
+        solved = self._get_from_self(provider)
         self.context[dependency_type] = solved
         return solved
 
@@ -113,7 +104,7 @@ class DependencyContainer:
         e = None
         for exit_generator in self.exits:
             try:
-                if exit_generator.factory_type is FactoryType.GENERATOR:
+                if exit_generator.type is FactoryType.GENERATOR:
                     next(exit_generator.callable)
             except StopIteration:
                 pass
@@ -125,22 +116,22 @@ class DependencyContainer:
 class ContextWrapper:
     __slots__ = ("container",)
 
-    def __init__(self, container: DependencyContainer):
+    def __init__(self, container: Container):
         self.container = container
 
-    def __enter__(self) -> DependencyContainer:
+    def __enter__(self) -> Container:
         return self.container
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.container.close()
 
-def make_dependency_container(
+def make_container(
         *providers: Provider,
         scopes: Type[BaseScope] = Scope,
         context: Optional[dict] = None,
-        use_lock: bool = False,
+        with_lock: bool = False,
 ) -> ContextWrapper:
     registries = make_registries(*providers, scopes=scopes)
     return ContextWrapper(
-        DependencyContainer(*registries, context=context, use_lock=use_lock),
+        Container(*registries, context=context, with_lock=with_lock),
     )
