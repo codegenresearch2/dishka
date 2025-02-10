@@ -54,14 +54,19 @@ def test_double():
         def decorated(self, a: A) -> A:
             return ADecorator(a)
 
+        @decorate
+        def decorated2(self, a: A) -> A:
+            return ADecorator(a)
+
     with make_container(MyProvider()) as container:
         a1 = container.get(A)
         assert isinstance(a1, ADecorator)
-        assert isinstance(a1.a, A2)
+        assert isinstance(a1.a, ADecorator)
+        assert isinstance(a1.a.a, A2)
 
         a2 = container.get(A2)
         assert isinstance(a2, A2)
-        assert a2 is a1.a
+        assert a2 is a1.a.a
 
 test_simple()
 test_alias()
