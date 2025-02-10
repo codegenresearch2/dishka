@@ -36,7 +36,7 @@ def test_alias():
         a = alias(source=A1, provides=A)
 
         @decorate
-        def create_decorated(self, a: A1) -> A1:
+        def decorated(self, a: A1) -> A1:
             return ADecorator(a)
 
     with make_container(MyProvider()) as container:
@@ -47,6 +47,30 @@ def test_alias():
         a2 = container.get(A2)
         assert isinstance(a2, A2)
         assert a2 is a1.a
+
+        a = container.get(A)
+        assert a is a1
+
+
+def test_double():
+    class MyProvider(Provider):
+        a2 = provide(A2, scope=Scope.APP)
+        a1 = alias(source=A2, provides=A1)
+        a = alias(source=A1, provides=A)
+
+        @decorate
+        def double_decorated(self, a: A1) -> A1:
+            return ADecorator(ADecorator(a).a)
+
+    with make_container(MyProvider()) as container:
+        a1 = container.get(A1)
+        assert isinstance(a1, ADecorator)
+        assert isinstance(a1.a, A2)
+        assert isinstance(a1.a.a, A2)
+
+        a2 = container.get(A2)
+        assert isinstance(a2, A2)
+        assert a2 is a1.a.a
 
         a = container.get(A)
         assert a is a1
