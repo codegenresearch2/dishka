@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import AsyncIterable, Iterable
 from enum import Enum
 from inspect import (
@@ -21,7 +22,6 @@ from typing import (
 
 from .scope import BaseScope
 
-
 class FactoryType(Enum):
     GENERATOR = "generator"
     ASYNC_GENERATOR = "async_generator"
@@ -29,12 +29,10 @@ class FactoryType(Enum):
     ASYNC_FACTORY = "async_factory"
     VALUE = "value"
 
-
 def _identity(x: Any) -> Any:
     return x
 
-
-class Factory:
+class DependencyFactory:
     __slots__ = (
         "dependencies", "source", "provides", "scope", "type",
         "is_to_bound",
@@ -63,7 +61,7 @@ class Factory:
             source = self.source.__get__(instance, owner)
         else:
             source = self.source
-        return Factory(
+        return DependencyFactory(
             dependencies=self.dependencies,
             source=source,
             provides=self.provides,
@@ -72,12 +70,11 @@ class Factory:
             is_to_bound=False,
         )
 
-
-def make_factory(
+def create_factory(
         provides: Any,
         scope: Optional[BaseScope],
         source: Callable,
-) -> Factory:
+) -> DependencyFactory:
     if isclass(source):
         hints = get_type_hints(source.__init__, include_extras=True)
         hints.pop("return", None)
@@ -107,7 +104,7 @@ def make_factory(
     else:
         provider_type = FactoryType.FACTORY
 
-    return Factory(
+    return DependencyFactory(
         dependencies=list(hints.values()),
         type=provider_type,
         source=source,
@@ -116,15 +113,13 @@ def make_factory(
         is_to_bound=is_to_bind,
     )
 
-
 @overload
 def provide(
         *,
         scope: BaseScope,
         provides: Any = None,
-) -> Callable[[Callable], Factory]:
+) -> Callable[[Callable], DependencyFactory]:
     ...
-
 
 @overload
 def provide(
@@ -132,9 +127,8 @@ def provide(
         *,
         scope: BaseScope,
         provides: Any = None,
-) -> Factory:
+) -> DependencyFactory:
     ...
-
 
 def provide(
         source: Union[None, Callable, Type] = None,
@@ -142,43 +136,23 @@ def provide(
         scope: BaseScope,
         provides: Any = None,
 ):
-    """
-    Mark a method or class as providing some dependency.
-
-    If used as a method decorator then return annotation is used
-    to determine what is provided. User `provides` to override that.
-    Method parameters are analyzed and passed automatically.
-
-    If used with a class a first parameter than `__init__` method parameters
-    are passed automatically. If no provides is passed then it is
-    supposed that class itself is a provided dependency.
-
-    Return value must be saved as a `Provider` class attribute and
-    not intended for direct usage
-
-    :param source: Method to decorate or class.
-    :param scope: Scope of the dependency to limit its lifetime
-    :param provides: Dependency type which is provided by this factory
-    :return: instance of Factory or a decorator returning it
-    """
     if source is not None:
-        return make_factory(provides, scope, source)
+        return create_factory(provides, scope, source)
 
     def scoped(func):
-        return make_factory(provides, scope, func)
+        return create_factory(provides, scope, func)
 
     return scoped
 
-
-class Alias:
+class DependencyAlias:
     __slots__ = ("source", "provides")
 
     def __init__(self, source, provides):
         self.source = source
         self.provides = provides
 
-    def as_factory(self, scope: BaseScope) -> Factory:
-        return Factory(
+    def as_factory(self, scope: BaseScope) -> DependencyFactory:
+        return DependencyFactory(
             scope=scope,
             source=_identity,
             provides=self.provides,
@@ -190,55 +164,98 @@ class Alias:
     def __get__(self, instance, owner):
         return self
 
-
 def alias(
         *,
         source: Type,
         provides: Type,
 ):
-    return Alias(
+    return DependencyAlias(
         source=source,
         provides=provides,
     )
 
+class DependencyDecorator:
+    __slots__ = ("provides", "provider")
 
-class Decorator:
-    __slots__ = ("provides", "factory")
-
-    def __init__(self, factory: Factory):
-        self.factory = factory
-        self.provides = factory.provides
+    def __init__(self, provider: DependencyFactory):
+        self.provider = provider
+        self.provides = provider.provides
 
     def as_factory(
             self, scope: BaseScope, new_dependency: Any,
-    ) -> Factory:
-        return Factory(
+    ) -> DependencyFactory:
+        return DependencyFactory(
             scope=scope,
-            source=self.factory.source,
-            provides=self.factory.provides,
-            is_to_bound=self.factory.is_to_bound,
+            source=self.provider.source,
+            provides=self.provider.provides,
+            is_to_bound=self.provider.is_to_bound,
             dependencies=[
                 new_dependency if dep is self.provides else dep
-                for dep in self.factory.dependencies
+                for dep in self.provider.dependencies
             ],
-            type=self.factory.type,
+            type=self.provider.type,
         )
 
     def __get__(self, instance, owner):
-        return Decorator(self.factory.__get__(instance, owner))
-
+        return DependencyDecorator(self.provider.__get__(instance, owner))
 
 def decorate(
         source: Union[None, Callable, Type] = None,
         provides: Any = None,
 ):
     if source is not None:
-        return Decorator(make_factory(provides, None, source))
+        return DependencyDecorator(create_factory(provides, None, source))
 
     def scoped(func):
-        return Decorator(make_factory(provides, None, func))
+        return DependencyDecorator(create_factory(provides, None, func))
 
     return scoped
 
+DependencySource = DependencyAlias | DependencyFactory | DependencyDecorator
 
-DependencySource = Alias | Factory | Decorator
+class DependencyRegistry:
+    __slots__ = ("scope", "_factories")
+
+    def __init__(self, scope: BaseScope):
+        self._factories = defaultdict(DependencyFactory)
+        self.scope = scope
+
+    def add_factory(self, factory: DependencyFactory):
+        self._factories[factory.provides] = factory
+
+    def get_factory(self, dependency: Any) -> DependencyFactory:
+        return self._factories.get(dependency)
+
+def create_registries(*providers: Provider, scopes: Type[BaseScope]):
+    dep_scopes = {}
+    for provider in providers:
+        for source in provider.dependency_sources:
+            if hasattr(source, "scope"):
+                dep_scopes[source.provides] = source.scope
+
+    registries = {scope: DependencyRegistry(scope) for scope in scopes}
+    decorator_depth = defaultdict(int)
+
+    for provider in providers:
+        for source in provider.dependency_sources:
+            provides = source.provides
+            if isinstance(source, DependencyFactory):
+                scope = source.scope
+            elif isinstance(source, DependencyAlias):
+                scope = dep_scopes[source.source]
+                dep_scopes[provides] = scope
+                source = source.as_factory(scope)
+            elif isinstance(source, DependencyDecorator):
+                scope = dep_scopes[provides]
+                registry = registries[scope]
+                undecorated_type = Type[f"{provides.__name__}@{decorator_depth[provides]}", provides]
+                decorator_depth[provides] += 1
+                old_factory = registry.get_factory(provides)
+                old_factory.provides = undecorated_type
+                registry.add_factory(old_factory)
+                source = source.as_factory(scope, undecorated_type)
+            else:
+                raise ValueError("Unknown dependency source type")
+            registries[scope].add_factory(source)
+
+    return list(registries.values())
