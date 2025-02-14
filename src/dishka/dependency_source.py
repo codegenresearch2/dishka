@@ -1,23 +1,5 @@
-from collections.abc import AsyncIterable, Iterable
-from enum import Enum
-from inspect import (
-    isasyncgenfunction,
-    isclass,
-    iscoroutinefunction,
-    isgeneratorfunction,
-)
-from typing import (
-    Any,
-    Callable,
-    Optional,
-    Sequence,
-    Type,
-    Union,
-    get_args,
-    get_origin,
-    get_type_hints,
-    overload,
-)
+from collections import defaultdict
+from typing import Any, List, Type
 
 from .scope import BaseScope
 
@@ -42,7 +24,7 @@ class Factory:
 
     def __init__(
             self,
-            dependencies: Sequence[Any],
+            dependencies: List[Any],
             source: Any,
             provides: Type,
             scope: Optional[BaseScope],
@@ -142,25 +124,7 @@ def provide(
         scope: BaseScope,
         provides: Any = None,
 ):
-    """
-    Mark a method or class as providing some dependency.
-
-    If used as a method decorator then return annotation is used
-    to determine what is provided. User `provides` to override that.
-    Method parameters are analyzed and passed automatically.
-
-    If used with a class a first parameter than `__init__` method parameters
-    are passed automatically. If no provides is passed then it is
-    supposed that class itself is a provided dependency.
-
-    Return value must be saved as a `Provider` class attribute and
-    not intended for direct usage
-
-    :param source: Method to decorate or class.
-    :param scope: Scope of the dependency to limit its lifetime
-    :param provides: Dependency type which is provided by this factory
-    :return: instance of Factory or a decorator returning it
-    """
+    """\n    Mark a method or class as providing some dependency.\n\n    If used as a method decorator then return annotation is used\n    to determine what is provided. User `provides` to override that.\n    Method parameters are analyzed and passed automatically.\n\n    If used with a class a first parameter than `__init__` method parameters\n    are passed automatically. If no provides is passed then it is\n    supposed that class itself is a provided dependency.\n\n    Return value must be saved as a `Provider` class attribute and\n    not intended for direct usage\n\n    :param source: Method to decorate or class.\n    :param scope: Scope of the dependency to limit its lifetime\n    :param provides: Dependency type which is provided by this factory\n    :return: instance of Factory or a decorator returning it\n    """
     if source is not None:
         return make_factory(provides, scope, source)
 
@@ -177,7 +141,7 @@ class Alias:
         self.source = source
         self.provides = provides
 
-    def as_factory(self, scope: BaseScope) -> Factory:
+    def as_provider(self, scope: BaseScope) -> Factory:
         return Factory(
             scope=scope,
             source=_identity,
@@ -203,29 +167,29 @@ def alias(
 
 
 class Decorator:
-    __slots__ = ("provides", "factory")
+    __slots__ = ("provides", "provider")
 
-    def __init__(self, factory: Factory):
-        self.factory = factory
-        self.provides = factory.provides
+    def __init__(self, provider: Factory):
+        self.provider = provider
+        self.provides = provider.provides
 
-    def as_factory(
+    def as_provider(
             self, scope: BaseScope, new_dependency: Any,
     ) -> Factory:
         return Factory(
             scope=scope,
-            source=self.factory.source,
-            provides=self.factory.provides,
-            is_to_bound=self.factory.is_to_bound,
+            source=self.provider.source,
+            provides=self.provider.provides,
+            is_to_bound=self.provider.is_to_bound,
             dependencies=[
                 new_dependency if dep is self.provides else dep
-                for dep in self.factory.dependencies
+                for dep in self.provider.dependencies
             ],
-            type=self.factory.type,
+            type=self.provider.type,
         )
 
     def __get__(self, instance, owner):
-        return Decorator(self.factory.__get__(instance, owner))
+        return Decorator(self.provider.__get__(instance, owner))
 
 
 def decorate(
