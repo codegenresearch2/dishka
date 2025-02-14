@@ -1,62 +1,56 @@
-from collections import defaultdict
 from typing import Any, List, NewType, Type
 
-from .dependency_source import Alias, Decorator, Factory
+from .dependency_source import Alias, Decorator, DependencyFactory
 from .provider import Provider
 from .scope import BaseScope
 
-
-class Registry:
+class DependencyRegistry:
     __slots__ = ("scope", "_factories")
 
     def __init__(self, scope: BaseScope):
-        self._factories: dict[Type, Factory] = {}
+        self._factories = {}
         self.scope = scope
 
-    def add_provider(self, factory: Factory):
+    def add_factory(self, factory: DependencyFactory):
         self._factories[factory.provides] = factory
 
-    def get_provider(self, dependency: Any) -> Factory:
+    def get_factory(self, dependency: Any) -> DependencyFactory:
         return self._factories.get(dependency)
 
-
-def make_registries(
+def create_registries(
         *providers: Provider, scopes: Type[BaseScope],
-) -> List[Registry]:
-    dep_scopes = {}
+) -> List[DependencyRegistry]:
+    dependency_scopes = {}
     for provider in providers:
         for source in provider.dependency_sources:
             if hasattr(source, "scope"):
-                dep_scopes[source.provides] = source.scope
+                dependency_scopes[source.provides] = source.scope
 
-    registries = {scope: Registry(scope) for scope in scopes}
-    decorator_depth: dict[Type, int] = defaultdict(int)
+    registries = {scope: DependencyRegistry(scope) for scope in scopes}
 
     for provider in providers:
         for source in provider.dependency_sources:
-            provides = source.provides
-            if isinstance(source, Factory):
+            if isinstance(source, DependencyFactory):
                 scope = source.scope
             elif isinstance(source, Alias):
-                scope = dep_scopes[source.source]
-                dep_scopes[provides] = scope
+                scope = dependency_scopes[source.source]
+                dependency_scopes[source.provides] = scope
                 source = source.as_factory(scope)
             elif isinstance(source, Decorator):
-                scope = dep_scopes[provides]
+                scope = dependency_scopes[source.provides]
                 registry = registries[scope]
                 undecorated_type = NewType(
-                    f"{provides.__name__}@{decorator_depth[provides]}",
+                    f"Undecorated_{source.provides.__name__}",
                     source.provides,
                 )
-                decorator_depth[provides] += 1
-                old_provider = registry.get_provider(provides)
-                old_provider.provides = undecorated_type
-                registry.add_provider(old_provider)
+                old_factory = registry.get_factory(source.provides)
+                old_factory.provides = undecorated_type
+                registry.add_factory(old_factory)
                 source = source.as_factory(
                     scope, undecorated_type,
                 )
             else:
                 raise ValueError("Unknown dependency source type")
-            registries[scope].add_provider(source)
+            registries[scope].add_factory(source)
 
     return list(registries.values())
