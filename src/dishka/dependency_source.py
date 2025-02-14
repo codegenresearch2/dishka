@@ -142,25 +142,7 @@ def provide(
         scope: BaseScope,
         provides: Any = None,
 ):
-    """
-    Mark a method or class as providing some dependency.
-
-    If used as a method decorator then return annotation is used
-    to determine what is provided. User `provides` to override that.
-    Method parameters are analyzed and passed automatically.
-
-    If used with a class a first parameter than `__init__` method parameters
-    are passed automatically. If no provides is passed then it is
-    supposed that class itself is a provided dependency.
-
-    Return value must be saved as a `Provider` class attribute and
-    not intended for direct usage
-
-    :param source: Method to decorate or class.
-    :param scope: Scope of the dependency to limit its lifetime
-    :param provides: Dependency type which is provided by this factory
-    :return: instance of Factory or a decorator returning it
-    """
+    """\n    Mark a method or class as providing some dependency.\n\n    If used as a method decorator then return annotation is used\n    to determine what is provided. User `provides` to override that.\n    Method parameters are analyzed and passed automatically.\n\n    If used with a class a first parameter than `__init__` method parameters\n    are passed automatically. If no provides is passed then it is\n    supposed that class itself is a provided dependency.\n\n    Return value must be saved as a `Provider` class attribute and\n    not intended for direct usage\n\n    :param source: Method to decorate or class.\n    :param scope: Scope of the dependency to limit its lifetime\n    :param provides: Dependency type which is provided by this factory\n    :return: instance of Factory or a decorator returning it\n    """
     if source is not None:
         return make_factory(provides, scope, source)
 
